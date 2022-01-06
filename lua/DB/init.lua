@@ -6,9 +6,6 @@ local vim = vim
 local api = vim.api
 local uv = vim.loop
 
-api.nvim_set_keymap('n', '<leader>ab', ":lua require('functions').DB()<CR>",
-                    {noremap = true})
-
 function M.get_selection()
     local s_start = vim.fn.getpos("'<")
     local s_end = vim.fn.getpos("'>")
@@ -24,7 +21,9 @@ function M.get_selection()
     else
         lines[n_lines] = string.sub(lines[n_lines], 1, s_end[3])
     end
+
     return lines
+
 end
 
 -- Example:
@@ -34,13 +33,30 @@ function M.DB()
     M.Write(sql)
     M.Execute(function(res)
         M.open_window(res)
+        -- vim.fn.delete('/tmp/db.sql')
     end)
 end
 
--- TODO: implement preview function in lua
--- function M.ShowPreview() end
+function M.ShowPreview()
+
+    local wordUnderCursor = vim.fn.expand("<cword>")
+    local line = vim.fn.getline('.')
+
+    if vim.fn.strpart(line, vim.fn.stridx(line, wordUnderCursor) - 1, 1) == '.' then
+        local schema = vim.fn.matchstr(line, [[\v(\w*)(\.\@=)]])
+        local sqlstr = 'select * from ' .. schema .. wordUnderCursor .. ' limit 50;'
+
+        local sql = {sqlstr}
+        M.Write(sql)
+        M.Execute(function(res) M.open_window(res) end)
+    else
+        print("not working yet")
+    end
+
+end
 
 function M.Write(str)
+
     local path = '/tmp/db.sql'
     local fd = uv.fs_open(path, 'w', 438)
     uv.fs_write(fd, str, -1)
@@ -48,17 +64,23 @@ function M.Write(str)
 end
 
 function M.Execute(cb)
-    vim.fn.jobstart(string.format('vimdb %s',
-                                  vim.fn.toupper(vim.env.stage) .. ' /tmp/db.sql'),
-                    {
+    vim.fn.jobstart(string.format('vimdb %s', vim.fn.toupper(vim.env.stage) ..
+                                      ' /tmp/db.sql'), {
         stdout_buffered = true,
-        on_stdout = function(_, data, _) cb(data) end
+        stderr_buffered = true,
+        on_stdout = function(_, data, _)
+            cb(data)
+        end,
+        on_stderr = function(_, err, _)
+            cb(err)
+        end
     })
 end
 
 function M.open_window(lines)
 
     vim.cmd([[
+luarocks install inspect
         pclose
         keepalt new +setlocal\ previewwindow|setlocal\ buftype=nofile|setlocal\ noswapfile|setlocal\ wrap [Jira]
         setl bufhidden=wipe
@@ -79,6 +101,9 @@ function M.open_window(lines)
         wincmd P
         res 15
       ]])
+
+    vim.api.nvim_buf_set_keymap(0, 'n', 'q', ':pclose<cr>',
+                                {nowait = true, noremap = true, silent = true})
 
 end
 
