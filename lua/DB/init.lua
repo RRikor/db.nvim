@@ -32,7 +32,7 @@ end
 function M.DB()
     local sql = M.get_selection()
     M.Write(sql)
-    M.Execute()
+    M.Execute(sql)
 end
 
 function M.ShowPreview()
@@ -47,7 +47,7 @@ function M.ShowPreview()
 
         local sql = {sqlstr}
         M.Write(sql)
-        M.Execute()
+        M.Execute(sql)
     else
         print("not working yet")
     end
@@ -62,18 +62,41 @@ end
 function M.Write(str)
     local path = '/tmp/db.sql'
     local fd = uv.fs_open(path, 'w', 438)
-    uv.fs_write(fd, str, -1)
+
+    for i, line in ipairs(str) do
+        uv.fs_write(fd, line .. '\n', -1)
+    end
+
     uv.fs_close(fd)
 end
 
-function M.Execute()
+function M.Execute(sql)
     JobId = vim.fn.jobstart(string.format('vimdb %s', vim.fn.toupper(vim.env.stage) ..
                                       ' /tmp/db.sql'), {
         stdout_buffered = true,
         stderr_buffered = true,
-        on_stdout = function(_, data, _) M.open_window(data) end,
-        on_stderr = function(_, err, _) print(vim.inspect(err)) end
+        on_stdout = function(_, data, _)
+            if data[1] ~= "" then
+                M.open_window(data)
+            end
+        end,
+        on_stderr = function(_, err, _)
+            if err[1] ~= "" then
+                print(vim.inspect(err))
+            end
+        end
     })
+
+    local executing = {}
+    table.insert(executing, "Executing...")
+    table.insert(executing, "")
+
+    for _, data in ipairs(sql) do
+        table.insert(executing, data)
+    end
+
+    M.open_window(executing)
+
 end
 
 function M.open_window(lines)
