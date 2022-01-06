@@ -32,13 +32,32 @@ end
 function M.DB()
     local sql = M.get_selection()
     M.Write(sql)
-    M.Execute(function(res)
-        M.open_window(res)
-    end)
+    M.Execute()
 end
 
--- TODO: implement preview function in lua
--- function M.ShowPreview() end
+function M.ShowPreview()
+
+    local wordUnderCursor = vim.fn.expand("<cword>")
+    local line = vim.fn.getline('.')
+
+    if vim.fn.strpart(line, vim.fn.stridx(line, wordUnderCursor) - 1, 1) == '.' then
+        local schema = vim.fn.matchstr(line, [[\v(\w*)(\.\@=)]])
+        local sqlstr = 'select * from ' .. schema .. wordUnderCursor ..
+                           ' limit 50;'
+
+        local sql = {sqlstr}
+        M.Write(sql)
+        M.Execute()
+    else
+        print("not working yet")
+    end
+end
+
+function M.CancelQuery()
+    if JobId ~= nil then
+        vim.fn.jobstop(JobId)
+    end
+end
 
 function M.Write(str)
     local path = '/tmp/db.sql'
@@ -47,12 +66,13 @@ function M.Write(str)
     uv.fs_close(fd)
 end
 
-function M.Execute(cb)
-    vim.fn.jobstart(string.format('vimdb %s',
-                                  vim.fn.toupper(vim.env.stage) .. ' /tmp/db.sql'),
-                    {
+function M.Execute()
+    JobId = vim.fn.jobstart(string.format('vimdb %s', vim.fn.toupper(vim.env.stage) ..
+                                      ' /tmp/db.sql'), {
         stdout_buffered = true,
-        on_stdout = function(_, data, _) cb(data) end
+        stderr_buffered = true,
+        on_stdout = function(_, data, _) M.open_window(data) end,
+        on_stderr = function(_, err, _) print(vim.inspect(err)) end
     })
 end
 
@@ -79,6 +99,10 @@ function M.open_window(lines)
         wincmd P
         res 15
       ]])
+
+    vim.api.nvim_buf_set_keymap(0, 'n', 'q', ':pclose<cr>',
+                                {nowait = true, noremap = true, silent = true})
+
 
 end
 
