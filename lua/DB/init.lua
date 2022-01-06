@@ -29,6 +29,10 @@ end
 
 -- Example:
 -- https://github.com/smolck/nvim-todoist.lua/blob/2389aedf9831351433ab3806142b1e7e5dbddd22/lua/nvim-todoist.lua
+-- TODO: Run 'select pg_backend_pid();' to receive the pid of the query we are about
+-- to execute. This is necessary for cancelling a query. However this is not possible when using psql.
+-- So solution: create a small backend to keep the connection
+-- open, get the pid, run the query and save the pid so we can cancel if necessary.
 function M.DB()
     local sql = M.get_selection()
     M.Write(sql)
