@@ -1,13 +1,28 @@
 fun! DB() range abort
-    lua for k in pairs(package.loaded) do if k:match("^DB") then package.loaded[k] = nil end end
+    call Reload()
     lua require("DB").DB()
 endfun
 
-fun! DP() range abort
-    lua for k in pairs(package.loaded) do if k:match("^DB") then package.loaded[k] = nil end end
+fun! ShowPreview() range abort
+    call Reload()
     lua require("DB").ShowPreview()
 endfun
 
+fun! CountNrRows() range abort
+    call Reload()
+    lua require("DB").CountNrRows()
+endfun
+
+fun! DP() range abort
+    call Reload()
+    lua require("DB").ShowPreview()
+endfun
+
+fun! Reload()
+    lua for k in pairs(package.loaded) do if k:match("^DB") then package.loaded[k] = nil end end
+endfun
+
 map <leader>pp :call DB()<CR>
-map <leader>pv :call DP()<CR>
+map <leader>pv :call ShowPreview()<CR>
+map <leader>pc :call CountNrRows()<CR>
 
