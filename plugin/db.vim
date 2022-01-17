@@ -13,9 +13,9 @@ fun! CountNrRows() range abort
     lua require("DB").CountNrRows()
 endfun
 
-fun! DP() range abort
+fun! ShowJobs() range abort
     call Reload()
-    lua require("DB").ShowPreview()
+    lua require("DB").ShowJobs()
 endfun
 
 fun! Reload()
@@ -25,4 +25,5 @@ endfun
 map <leader>pp :call DB()<CR>
 map <leader>pv :call ShowPreview()<CR>
 map <leader>pc :call CountNrRows()<CR>
+map <leader>pj :call ShowJobs()<CR>
 

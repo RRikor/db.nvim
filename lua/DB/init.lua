@@ -59,7 +59,6 @@ function M.ShowPreview()
                            ' limit 50;'
 
         local sql = {sqlstr}
-        M.Write(sql)
         M.Execute(sql)
     else
         print("not working yet")
@@ -77,25 +76,64 @@ function M.CountNrRows()
                            ';'
 
         local sql = {sqlstr}
-        M.Write(sql)
         M.Execute(sql)
     else
         print("not working yet")
     end
 end
 
+function M.ShowJobs()
+    M.SetCurrentPosition()
+
+    local sql = [[
+        select 
+            pid
+            , query
+        from pg_stat_activity
+        where pid in (
+            SELECT distinct 
+                l.pid 
+            FROM pg_locks l 
+            JOIN pg_stat_all_tables t ON l.relation = t.relid 
+            left join pg_stat_activity as t2 on ( 
+                l.pid = t2.pid ) 
+            WHERE 
+                t.schemaname <> 'pg_toast'::name 
+                AND t.schemaname <> 'pg_catalog'::name
+        );]]
+    M.Execute(sql)
+
+    vim.api.nvim_buf_set_keymap(0, 'n', 'c', "lua require('DB').StopJob()  ",
+                                {nowait = true, noremap = true, silent = true})
+end
+
+function M.StopJob()
+
+    local wordUnderCursor = vim.fn.expand("<cword>")
+    local sql = 'select pg_terminate_backend(' .. wordUnderCursor .. '):'
+    M.Execute(sql)
+end
+
 function M.CancelQuery() if JobId ~= nil then vim.fn.jobstop(JobId) end end
 
-function M.Write(str)
+function M.Write(sql_table)
+
+    if type(sql_table) == 'string' then
+        sql_table = vim.fn.split(sql_table, '\n')
+    end
+
     local path = '/tmp/db.sql'
     local fd = uv.fs_open(path, 'w', 438)
 
-    for _, line in ipairs(str) do uv.fs_write(fd, line .. '\n', -1) end
+    for _, line in ipairs(sql_table) do uv.fs_write(fd, line .. '\n', -1) end
 
     uv.fs_close(fd)
+
 end
 
 function M.Execute(sql)
+    M.Write(sql)
+
     JobId = vim.fn.jobstart(string.format('vimdb %s', vim.fn
                                               .toupper(vim.env.stage) ..
                                               ' /tmp/db.sql'), {
@@ -110,8 +148,13 @@ function M.Execute(sql)
     })
 
     local executing = {}
-    table.insert(executing, "Executing...")
+    table.insert(executing, "Executing on " .. vim.env.stage .. "...")
     table.insert(executing, "")
+
+    if type(sql) == 'table' then
+    elseif type(sql == 'string') then
+        sql = vim.fn.split(sql, '\n')
+    end
 
     for _, data in ipairs(sql) do table.insert(executing, data) end
 
