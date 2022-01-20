@@ -1,6 +1,8 @@
 -- Docs
 -- https://github.com/luvit/luv/blob/master/docs.md
 -- Code from $HOME/.config/nvim/lua/functions.lua
+-- Windows: https://www.2n.pl/blog/how-to-make-ui-for-neovim-plugins-in-lua
+-- Floating windows:  https://www.2n.pl/blog/how-to-write-neovim-plugins-in-lua
 local M = {}
 local vim = vim
 local api = vim.api
@@ -134,9 +136,12 @@ end
 function M.Execute(sql)
     M.Write(sql)
 
+    -- TODO: vimdb can probably be integrated in here
     JobId = vim.fn.jobstart(string.format('vimdb %s', vim.fn
                                               .toupper(vim.env.stage) ..
                                               ' /tmp/db.sql'), {
+        -- TODO: this can be put on false, but then it will display a new empty window for
+        -- each result. Figure out how to append the result to the window and not overwrite
         stdout_buffered = true,
         stderr_buffered = true,
         on_stdout = function(_, data, _)
@@ -190,6 +195,48 @@ function M.open_window(lines, return_cursor)
     -- if return_cursor == true then
     vim.api.nvim_win_set_cursor(CurrentPos['window'], CurrentPos['cursor'])
     -- end
+
+end
+
+-- TODO: Finish the selection with actually connecting to the selected db
+function M.db_selection()
+
+    local dbs = {
+        "1. woco-dev",
+        "2. woco-prd",
+        "3. spotr-domain-dev",
+        "4. spotr-domain-prd",
+        "5. fm - redshift"
+    }
+
+    -- local start_win = vim.api.nvim_get_current_win()
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_option(buf, 'bufhidden', 'wipe')
+
+    -- get dimensions
+    local editorWidth = vim.api.nvim_get_option("columns")
+    local editorHeight = vim.api.nvim_get_option("lines")
+
+    local height = math.ceil(editorHeight * 0.2 - 4)
+    local width = math.ceil(editorWidth * 0.2)
+    local opts = {
+        style = "minimal",
+        border = "rounded",
+        relative = "editor",
+        height = height,
+        width = width,
+        row = math.ceil((editorHeight - height) / 2 - 1),
+        col = math.ceil((editorWidth - width) / 2)
+    }
+    -- and finally create it with buffer attached
+    vim.api.nvim_open_win(buf, true, opts)
+    vim.api.nvim_buf_set_lines(buf, 0, 0, -1, dbs)
+
+    vim.api.nvim_buf_set_keymap(0, 'n', '<CR>', 'lua require("db").set_db()<cr>',
+                                {nowait = true, noremap = true, silent = true})
+end
+
+function M.set_db()
 
 end
 
