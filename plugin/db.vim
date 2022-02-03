@@ -18,12 +18,19 @@ fun! ShowJobs() range abort
     lua require("DB").ShowJobs()
 endfun
 
+fun! DBSelection() range abort
+    call Reload()
+    lua require("DB").db_selection()
+endfun
+
 fun! Reload()
     lua for k in pairs(package.loaded) do if k:match("^DB") then package.loaded[k] = nil end end
 endfun
 
 map <leader>pp :call DB()<CR>
 map <leader>pv :call ShowPreview()<CR>
-map <leader>pc :call CountNrRows()<CR>
+map <leader>pn :call CountNrRows()<CR>
 map <leader>pj :call ShowJobs()<CR>
+map <leader>pc :call DBSelection()<CR>
+
 

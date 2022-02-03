@@ -8,25 +8,23 @@ local vim = vim
 local api = vim.api
 local uv = vim.loop
 
-api.nvim_set_keymap('n', '<leader>ab', ":lua require('functions').DB()<CR>",
-                    {noremap = true})
-
 function M.get_selection()
-    local s_start = vim.fn.getpos("'<")
-    local s_end = vim.fn.getpos("'>")
-    local n_lines = math.abs(s_end[2] - s_start[2]) + 1
-    local lines = api.nvim_buf_get_lines(0, s_start[2] - 1, s_end[2], false)
+	local s_start = vim.fn.getpos("'<")
+	local s_end = vim.fn.getpos("'>")
+	local n_lines = math.abs(s_end[2] - s_start[2]) + 1
+	local lines = api.nvim_buf_get_lines(0, s_start[2] - 1, s_end[2], false)
 
-    if next(lines) == nil then return {""} end
+	if next(lines) == nil then
+		return { "" }
+	end
 
-    lines[1] = string.sub(lines[1], s_start[3], -1)
-    if n_lines == 1 then
-        lines[n_lines] =
-            string.sub(lines[n_lines], 1, s_end[3] - s_start[3] + 1)
-    else
-        lines[n_lines] = string.sub(lines[n_lines], 1, s_end[3])
-    end
-    return lines
+	lines[1] = string.sub(lines[1], s_start[3], -1)
+	if n_lines == 1 then
+		lines[n_lines] = string.sub(lines[n_lines], 1, s_end[3] - s_start[3] + 1)
+	else
+		lines[n_lines] = string.sub(lines[n_lines], 1, s_end[3])
+	end
+	return lines
 end
 
 CurrentPos = {}
@@ -37,57 +35,61 @@ CurrentPos = {}
 -- So solution: create a small backend to keep the connection
 -- open, get the pid, run the query and save the pid so we can cancel if necessary.
 function M.DB()
-    M.SetCurrentPosition()
-    local sql = M.get_selection()
-    M.Write(sql)
-    M.Execute(sql)
+	M.SetCurrentPosition()
+	local sql = M.get_selection()
+	M.Write(sql)
+	M.Execute(sql)
 end
 
 function M.SetCurrentPosition()
-    local win = vim.api.nvim_get_current_win()
-    local cursor = vim.api.nvim_win_get_cursor(win)
-    CurrentPos['window'] = win
-    CurrentPos['cursor'] = cursor
+	local win = vim.api.nvim_get_current_win()
+	local cursor = vim.api.nvim_win_get_cursor(win)
+	CurrentPos["window"] = win
+	CurrentPos["cursor"] = cursor
 end
 
 function M.ShowPreview()
-    M.SetCurrentPosition()
-    local wordUnderCursor = vim.fn.expand("<cword>")
-    local line = vim.fn.getline('.')
+	M.SetCurrentPosition()
+	local wordUnderCursor = vim.fn.expand("<cword>")
+	local line = vim.fn.getline(".")
 
-    if vim.fn.strpart(line, vim.fn.stridx(line, wordUnderCursor) - 1, 1) == '.' then
-        local schema = vim.fn.matchstr(line, [[\v(\w*)(\.\@=)]])
-        local sqlstr = 'select * from ' .. schema .. wordUnderCursor ..
-                           ' limit 50;'
+	if vim.fn.strpart(line, vim.fn.stridx(line, wordUnderCursor) - 1, 1) == "." then
+		local schema = vim.fn.matchstr(line, [[\v(\w*)(\.\@=)]])
+		local sqlstr = "select * from " .. schema .. wordUnderCursor .. " limit 50;"
 
-        local sql = {sqlstr}
-        M.Execute(sql)
-    else
-        print("not working yet")
-    end
+		local sql = { sqlstr }
+		M.Execute(sql)
+	else
+		print("not working yet")
+	end
 end
 
 function M.CountNrRows()
-    M.SetCurrentPosition()
-    local wordUnderCursor = vim.fn.expand("<cword>")
-    local line = vim.fn.getline('.')
+	M.SetCurrentPosition()
+	local wordUnderCursor = vim.fn.expand("<cword>")
+	local line = vim.fn.getline(".")
 
-    if vim.fn.strpart(line, vim.fn.stridx(line, wordUnderCursor) - 1, 1) == '.' then
-        local schema = vim.fn.matchstr(line, [[\v(\w*)(\.\@=)]])
-        local sqlstr = 'select count(*) from ' .. schema .. wordUnderCursor ..
-                           ';'
+	if vim.fn.strpart(line, vim.fn.stridx(line, wordUnderCursor) - 1, 1) == "." then
+		local schema = vim.fn.matchstr(line, [[\v(\w*)(\.\@=)]])
+		local sqlstr = "select count(*) from " .. schema .. wordUnderCursor .. ";"
 
-        local sql = {sqlstr}
-        M.Execute(sql)
-    else
-        print("not working yet")
-    end
+		local sql = { sqlstr }
+		M.Execute(sql)
+	else
+		print("not working yet")
+	end
+end
+
+function M.StopJob()
+	local wordUnderCursor = vim.fn.expand("<cword>")
+	local sql = "select pg_terminate_backend(" .. wordUnderCursor .. "):"
+	M.Execute(sql)
 end
 
 function M.ShowJobs()
-    M.SetCurrentPosition()
+	M.SetCurrentPosition()
 
-    local sql = [[
+	local sql = [[
         select 
             pid
             , query
@@ -103,73 +105,78 @@ function M.ShowJobs()
                 t.schemaname <> 'pg_toast'::name 
                 AND t.schemaname <> 'pg_catalog'::name
         );]]
-    M.Execute(sql)
+	M.Execute(sql)
 
-    vim.api.nvim_buf_set_keymap(0, 'n', 'c', "lua require('DB').StopJob()  ",
-                                {nowait = true, noremap = true, silent = true})
+	vim.api.nvim_buf_set_keymap(
+		0,
+		"n",
+		"<leader>pc",
+		":lua require('DB').StopJob()  ",
+		{ nowait = true, noremap = true }
+	)
 end
 
-function M.StopJob()
-
-    local wordUnderCursor = vim.fn.expand("<cword>")
-    local sql = 'select pg_terminate_backend(' .. wordUnderCursor .. '):'
-    M.Execute(sql)
+function M.CancelQuery()
+	if JobId ~= nil then
+		vim.fn.jobstop(JobId)
+	end
 end
-
-function M.CancelQuery() if JobId ~= nil then vim.fn.jobstop(JobId) end end
 
 function M.Write(sql_table)
+	if type(sql_table) == "string" then
+		sql_table = vim.fn.split(sql_table, "\n")
+	end
 
-    if type(sql_table) == 'string' then
-        sql_table = vim.fn.split(sql_table, '\n')
-    end
+	local path = "/tmp/db.sql"
+	local fd = uv.fs_open(path, "w", 438)
 
-    local path = '/tmp/db.sql'
-    local fd = uv.fs_open(path, 'w', 438)
+	for _, line in ipairs(sql_table) do
+		uv.fs_write(fd, line .. "\n", -1)
+	end
 
-    for _, line in ipairs(sql_table) do uv.fs_write(fd, line .. '\n', -1) end
-
-    uv.fs_close(fd)
-
+	uv.fs_close(fd)
 end
 
+-- TODO: DB selection works, try with <leader>pc. Now hook DB selection up with execute method here
 function M.Execute(sql)
-    M.Write(sql)
+	M.Write(sql)
 
-    -- TODO: vimdb can probably be integrated in here
-    JobId = vim.fn.jobstart(string.format('vimdb %s', vim.fn
-                                              .toupper(vim.env.stage) ..
-                                              ' /tmp/db.sql'), {
-        -- TODO: this can be put on false, but then it will display a new empty window for
-        -- each result. Figure out how to append the result to the window and not overwrite
-        stdout_buffered = true,
-        stderr_buffered = true,
-        on_stdout = function(_, data, _)
-            if data[1] ~= "" then M.open_window(data, false) end
-        end,
-        on_stderr = function(_, err, _)
-            if err[1] ~= "" then print(vim.inspect(err)) end
-        end
-    })
+	-- TODO: vimdb can probably be integrated in here
+	JobId = vim.fn.jobstart(string.format("vimdb %s", vim.fn.toupper(vim.env.stage) .. " /tmp/db.sql"), {
+		-- TODO: this can be put on false, but then it will display a new empty window for
+		-- each result. Figure out how to append the result to the window and not overwrite
+		stdout_buffered = true,
+		stderr_buffered = true,
+		on_stdout = function(_, data, _)
+			if data[1] ~= "" then
+				M.open_window(data, false)
+			end
+		end,
+		on_stderr = function(_, err, _)
+			if err[1] ~= "" then
+				print(vim.inspect(err))
+			end
+		end,
+	})
 
-    local executing = {}
-    table.insert(executing, "Executing on " .. vim.env.stage .. "...")
-    table.insert(executing, "")
+	local executing = {}
+	table.insert(executing, "Executing on " .. vim.env.stage .. "...")
+	table.insert(executing, "")
 
-    if type(sql) == 'table' then
-    elseif type(sql == 'string') then
-        sql = vim.fn.split(sql, '\n')
-    end
+	if type(sql) == "table" then
+	elseif type(sql == "string") then
+		sql = vim.fn.split(sql, "\n")
+	end
 
-    for _, data in ipairs(sql) do table.insert(executing, data) end
+	for _, data in ipairs(sql) do
+		table.insert(executing, data)
+	end
 
-    M.open_window(executing, true)
-
+	M.open_window(executing, true)
 end
 
 function M.open_window(lines, return_cursor)
-
-    vim.cmd([[
+	vim.cmd([[
         pclose
         keepalt new +setlocal\ previewwindow|setlocal\ buftype=nofile|setlocal\ noswapfile|setlocal\ wrap [Jira]
         setl bufhidden=wipe
@@ -182,63 +189,88 @@ function M.open_window(lines, return_cursor)
         setl nofoldenable
         setl nowrap
       ]])
-    vim.api.nvim_buf_set_lines(0, 0, -1, 0, lines)
+	vim.api.nvim_buf_set_lines(0, 0, -1, 0, lines)
 
-    vim.cmd('exe "normal! z" .' .. #lines .. '. "\\<cr>"')
-    vim.cmd([[
+	vim.cmd('exe "normal! z" .' .. #lines .. '. "\\<cr>"')
+	vim.cmd([[
         res 15
       ]])
 
-    vim.api.nvim_buf_set_keymap(0, 'n', 'q', ':pclose<cr>',
-                                {nowait = true, noremap = true, silent = true})
+	vim.api.nvim_buf_set_keymap(0, "n", "q", ":pclose<cr>", { nowait = true, noremap = true, silent = true })
 
-    -- if return_cursor == true then
-    vim.api.nvim_win_set_cursor(CurrentPos['window'], CurrentPos['cursor'])
-    -- end
-
+	-- if return_cursor == true then
+	vim.api.nvim_win_set_cursor(CurrentPos["window"], CurrentPos["cursor"])
+	-- end
 end
 
--- TODO: Finish the selection with actually connecting to the selected db
+local DBS = {}
+DBS[1] = {
+    name = "woco-dev",
+    conn = 'psql --host="$RDSDBDEV" --port=5432 --username="$DB_OCTOCVDB_DEV_ROOT_USER" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -L ~/psql.log -f %s 2>&1',
+}
+DBS[2] = {
+    name = "woco-prd",
+    conn = 'psql --host="$RDSDB" --port=5432 --username="$DB_OCTOCVDB_PRD_ROOT_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -L ~/psql.log -f %s 2>&1',
+}
+DBS[3] = {
+    name = "spotr-domain-dev",
+    conn = "psql --host=$RDSDOMAINACC --port=5432 --username=spotr_master --password --dbname=spotr_domain -w -L ~/psql.log -f %s 2>&1",
+}
+DBS[4] = {
+    name = "spotr-domain-prd",
+    conn = "psql --host=$RDSDOMAINPRD --port=5432 --username=spotr_master --password --dbname=spotr_domain -w -L ~/psql.log -f %s 2>&1",
+}
+DBS[5] = {
+    name = "FM - Redshift",
+    conn = "psql --host=$REDSHIFT --port=5439 --username=kvkorlaar --password --dbname=octodw -w -L ~/psql.log -f %s 2>&1",
+}
 function M.db_selection()
+	-- local start_win = vim.api.nvim_get_current_win()
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
 
-    local dbs = {
-        "1. woco-dev",
-        "2. woco-prd",
-        "3. spotr-domain-dev",
-        "4. spotr-domain-prd",
-        "5. fm - redshift"
-    }
+	-- get dimensions
+	local editorWidth = vim.api.nvim_get_option("columns")
+	local editorHeight = vim.api.nvim_get_option("lines")
 
-    -- local start_win = vim.api.nvim_get_current_win()
-    local buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_option(buf, 'bufhidden', 'wipe')
+	local height = math.ceil(editorHeight * 0.2 - 8)
+	local width = math.ceil(editorWidth * 0.2)
+	local opts = {
+		style = "minimal",
+		border = "rounded",
+		relative = "editor",
+		height = height,
+		width = width,
+		row = math.ceil((editorHeight - height) / 2 - 1),
+		col = math.ceil((editorWidth - width) / 2),
+	}
+	-- and finally create it with buffer attached
+	vim.api.nvim_open_win(buf, true, opts)
+	vim.api.nvim_buf_set_lines(buf, 0, 0, -1, M.format_dbs())
 
-    -- get dimensions
-    local editorWidth = vim.api.nvim_get_option("columns")
-    local editorHeight = vim.api.nvim_get_option("lines")
-
-    local height = math.ceil(editorHeight * 0.2 - 4)
-    local width = math.ceil(editorWidth * 0.2)
-    local opts = {
-        style = "minimal",
-        border = "rounded",
-        relative = "editor",
-        height = height,
-        width = width,
-        row = math.ceil((editorHeight - height) / 2 - 1),
-        col = math.ceil((editorWidth - width) / 2)
-    }
-    -- and finally create it with buffer attached
-    vim.api.nvim_open_win(buf, true, opts)
-    vim.api.nvim_buf_set_lines(buf, 0, 0, -1, dbs)
-
-    vim.api.nvim_buf_set_keymap(0, 'n', '<CR>', 'lua require("db").set_db()<cr>',
-                                {nowait = true, noremap = true, silent = true})
+	vim.api.nvim_buf_set_keymap(
+		0,
+		"n",
+		"<CR>",
+		':lua require("DB").set_db()<CR>',
+		{ nowait = true, noremap = true, silent = true}
+	)
 end
 
-function M.set_db()
+function M.format_dbs()
+	local lines = {}
+	for key, db in ipairs(DBS) do
+		table.insert(lines, key .. " • " .. db.name)
+	end
 
+	return lines
+end
+
+local Conn = {}
+function M.set_db()
+	local line = vim.fn.getline(".")
+    local id = string.sub(line, 1, 1)
+    Conn = DBS[tonumber(id)]
 end
 
 return M
-
