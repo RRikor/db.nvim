@@ -8,6 +8,31 @@ local vim = vim
 local api = vim.api
 local uv = vim.loop
 
+local DBS = {}
+DBS[1] = {
+    name = "woco-dev",
+    conn = 'psql --host="$RDSDBDEV" --port=5432 --username="$DB_OCTOCVDB_DEV_ROOT_USER" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -L ~/psql.log -f %s 2>&1',
+}
+DBS[2] = {
+    name = "woco-prd",
+    conn = 'psql --host="$RDSDB" --port=5432 --username="$DB_OCTOCVDB_PRD_ROOT_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -L ~/psql.log -f %s 2>&1',
+}
+DBS[3] = {
+    name = "spotr-domain-dev",
+    conn = "psql --host=$RDSDOMAINACC --port=5432 --username=spotr_master --password --dbname=spotr_domain -w -L ~/psql.log -f %s 2>&1",
+}
+DBS[4] = {
+    name = "spotr-domain-prd",
+    conn = "psql --host=$RDSDOMAINPRD --port=5432 --username=spotr_master --password --dbname=spotr_domain -w -L ~/psql.log -f %s 2>&1",
+}
+DBS[5] = {
+    name = "FM - Redshift",
+    conn = "psql --host=$REDSHIFT --port=5439 --username=kvkorlaar --password --dbname=octodw -w -L ~/psql.log -f %s 2>&1",
+}
+if not vim.g.dbconn then
+    vim.g.dbconn = DBS[1]
+end
+
 function M.get_selection()
 	local s_start = vim.fn.getpos("'<")
 	local s_end = vim.fn.getpos("'>")
@@ -141,8 +166,10 @@ end
 function M.Execute(sql)
 	M.Write(sql)
 
-	-- TODO: vimdb can probably be integrated in here
-	JobId = vim.fn.jobstart(string.format("vimdb %s", vim.fn.toupper(vim.env.stage) .. " /tmp/db.sql"), {
+    local job = string.format(vim.g.dbconn.conn, "/tmp/db.sql")
+
+	JobId = vim.fn.jobstart(
+        string.format(job), {
 		-- TODO: this can be put on false, but then it will display a new empty window for
 		-- each result. Figure out how to append the result to the window and not overwrite
 		stdout_buffered = true,
@@ -160,7 +187,7 @@ function M.Execute(sql)
 	})
 
 	local executing = {}
-	table.insert(executing, "Executing on " .. vim.env.stage .. "...")
+	table.insert(executing, "Executing on " .. vim.g.dbconn.name .. "...")
 	table.insert(executing, "")
 
 	if type(sql) == "table" then
@@ -175,6 +202,9 @@ function M.Execute(sql)
 	M.open_window(executing, true)
 end
 
+-- TODO: This is constantly creating the screen again. So if you resized the image, you need to resize after every query
+-- Fix it so this is a fixed window and does not get re-created if it is already there.
+-- TODO: Figure out how to create a class for the window to keep track of the state
 function M.open_window(lines, return_cursor)
 	vim.cmd([[
         pclose
@@ -203,27 +233,6 @@ function M.open_window(lines, return_cursor)
 	-- end
 end
 
-local DBS = {}
-DBS[1] = {
-    name = "woco-dev",
-    conn = 'psql --host="$RDSDBDEV" --port=5432 --username="$DB_OCTOCVDB_DEV_ROOT_USER" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -L ~/psql.log -f %s 2>&1',
-}
-DBS[2] = {
-    name = "woco-prd",
-    conn = 'psql --host="$RDSDB" --port=5432 --username="$DB_OCTOCVDB_PRD_ROOT_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -L ~/psql.log -f %s 2>&1',
-}
-DBS[3] = {
-    name = "spotr-domain-dev",
-    conn = "psql --host=$RDSDOMAINACC --port=5432 --username=spotr_master --password --dbname=spotr_domain -w -L ~/psql.log -f %s 2>&1",
-}
-DBS[4] = {
-    name = "spotr-domain-prd",
-    conn = "psql --host=$RDSDOMAINPRD --port=5432 --username=spotr_master --password --dbname=spotr_domain -w -L ~/psql.log -f %s 2>&1",
-}
-DBS[5] = {
-    name = "FM - Redshift",
-    conn = "psql --host=$REDSHIFT --port=5439 --username=kvkorlaar --password --dbname=octodw -w -L ~/psql.log -f %s 2>&1",
-}
 function M.db_selection()
 	-- local start_win = vim.api.nvim_get_current_win()
 	local buf = vim.api.nvim_create_buf(false, true)
@@ -233,8 +242,8 @@ function M.db_selection()
 	local editorWidth = vim.api.nvim_get_option("columns")
 	local editorHeight = vim.api.nvim_get_option("lines")
 
-	local height = math.ceil(editorHeight * 0.2 - 8)
-	local width = math.ceil(editorWidth * 0.2)
+	local height = math.ceil(editorHeight * 0.2 - 6)
+	local width = math.ceil(editorWidth * 0.2 - 10)
 	local opts = {
 		style = "minimal",
 		border = "rounded",
@@ -245,14 +254,14 @@ function M.db_selection()
 		col = math.ceil((editorWidth - width) / 2),
 	}
 	-- and finally create it with buffer attached
-	vim.api.nvim_open_win(buf, true, opts)
+	win = vim.api.nvim_open_win(buf, true, opts)
 	vim.api.nvim_buf_set_lines(buf, 0, 0, -1, M.format_dbs())
 
 	vim.api.nvim_buf_set_keymap(
 		0,
 		"n",
 		"<CR>",
-		':lua require("DB").set_db()<CR>',
+		':lua require("DB").set_db(' .. win .. ')<CR>',
 		{ nowait = true, noremap = true, silent = true}
 	)
 end
@@ -266,11 +275,12 @@ function M.format_dbs()
 	return lines
 end
 
-local Conn = {}
-function M.set_db()
+function M.set_db(win)
+    print(vim.inspect(win))
 	local line = vim.fn.getline(".")
     local id = string.sub(line, 1, 1)
-    Conn = DBS[tonumber(id)]
+    vim.g.dbconn = DBS[tonumber(id)]
+    vim.api.nvim_win_close(win, true)
 end
 
 return M
