@@ -7,30 +7,31 @@ local M = {}
 local vim = vim
 local api = vim.api
 local uv = vim.loop
+local Window = require("DB.window")
 
 local DBS = {}
 DBS[1] = {
-    name = "woco-dev",
-    conn = 'psql --host="$RDSDBDEV" --port=5432 --username="$DB_OCTOCVDB_DEV_ROOT_USER" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -L ~/psql.log -f %s 2>&1',
+	name = "woco-dev",
+	conn = 'psql --host="$RDSDBDEV" --port=5432 --username="$DB_OCTOCVDB_DEV_ROOT_USER" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -L ~/psql.log -f %s 2>&1',
 }
 DBS[2] = {
-    name = "woco-prd",
-    conn = 'psql --host="$RDSDB" --port=5432 --username="$DB_OCTOCVDB_PRD_ROOT_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -L ~/psql.log -f %s 2>&1',
+	name = "woco-prd",
+	conn = 'psql --host="$RDSDB" --port=5432 --username="$DB_OCTOCVDB_PRD_ROOT_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -L ~/psql.log -f %s 2>&1',
 }
 DBS[3] = {
-    name = "spotr-domain-dev",
-    conn = "psql --host=$RDSDOMAINACC --port=5432 --username=spotr_master --password --dbname=spotr_domain -w -L ~/psql.log -f %s 2>&1",
+	name = "spotr-domain-dev",
+	conn = "psql --host=$RDSDOMAINACC --port=5432 --username=spotr_master --password --dbname=spotr_domain -w -L ~/psql.log -f %s 2>&1",
 }
 DBS[4] = {
-    name = "spotr-domain-prd",
-    conn = "psql --host=$RDSDOMAINPRD --port=5432 --username=spotr_master --password --dbname=spotr_domain -w -L ~/psql.log -f %s 2>&1",
+	name = "spotr-domain-prd",
+	conn = "psql --host=$RDSDOMAINPRD --port=5432 --username=spotr_master --password --dbname=spotr_domain -w -L ~/psql.log -f %s 2>&1",
 }
 DBS[5] = {
-    name = "FM - Redshift",
-    conn = "psql --host=$REDSHIFT --port=5439 --username=kvkorlaar --password --dbname=octodw -w -L ~/psql.log -f %s 2>&1",
+	name = "FM - Redshift",
+	conn = "psql --host=$REDSHIFT --port=5439 --username=kvkorlaar --password --dbname=octodw -w -L ~/psql.log -f %s 2>&1",
 }
 if not vim.g.dbconn then
-    vim.g.dbconn = DBS[1]
+	vim.g.dbconn = DBS[1]
 end
 
 function M.get_selection()
@@ -166,10 +167,9 @@ end
 function M.Execute(sql)
 	M.Write(sql)
 
-    local job = string.format(vim.g.dbconn.conn, "/tmp/db.sql")
+	local job = string.format(vim.g.dbconn.conn, "/tmp/db.sql")
 
-	JobId = vim.fn.jobstart(
-        string.format(job), {
+	JobId = vim.fn.jobstart(string.format(job), {
 		-- TODO: this can be put on false, but then it will display a new empty window for
 		-- each result. Figure out how to append the result to the window and not overwrite
 		stdout_buffered = true,
@@ -199,38 +199,50 @@ function M.Execute(sql)
 		table.insert(executing, data)
 	end
 
-	M.open_window(executing, true)
+	-- M.open_window(executing, true)
 end
 
--- TODO: This is constantly creating the screen again. So if you resized the image, you need to resize after every query
--- Fix it so this is a fixed window and does not get re-created if it is already there.
--- TODO: Figure out how to create a class for the window to keep track of the state
+-- -- TODO: This is constantly creating the screen again. So if you resized the image, you need to resize after every query
+-- -- Fix it so this is a fixed window and does not get re-created if it is already there.
+-- -- TODO: Figure out how to create a class for the window to keep track of the state
+-- function M.open_window(lines, return_cursor)
+-- 	-- TODO: This vim.g.dbwin is not working yet
+-- 	-- if not vim.g.dbwin then
+-- 	vim.cmd([[
+--             pclose
+--             keepalt new +setlocal\ previewwindow|setlocal\ buftype=nofile|setlocal\ noswapfile|setlocal\ wrap [Jira]
+--             setl bufhidden=wipe
+--             setl buftype=nofile
+--             setl noswapfile
+--             setl nobuflisted
+--             setl nospell
+--             exe 'setl filetype=text'
+--             setl conceallevel=0
+--             setl nofoldenable
+--             setl nowrap
+--           ]])
+-- 	-- vim.cmd('exe "normal! z" .' .. #lines .. '. "\\<cr>"')
+-- 	vim.cmd([[
+--             res 15
+--           ]])
+-- 	vim.api.nvim_buf_set_keymap(0, "n", "q", ":pclose<cr>", { nowait = true, noremap = true, silent = true })
+-- 	-- end
+
+-- 	vim.api.nvim_buf_set_lines(0, 0, -1, 0, lines)
+-- 	vim.api.nvim_win_set_cursor(CurrentPos["window"], CurrentPos["cursor"])
+-- 	if not vim.g.dbwin then
+-- 		vim.g.dbwin = vim.api.nvim_get_current_win()
+-- 	end
+-- end
+
 function M.open_window(lines, return_cursor)
-	vim.cmd([[
-        pclose
-        keepalt new +setlocal\ previewwindow|setlocal\ buftype=nofile|setlocal\ noswapfile|setlocal\ wrap [Jira]
-        setl bufhidden=wipe
-        setl buftype=nofile
-        setl noswapfile
-        setl nobuflisted
-        setl nospell
-        exe 'setl filetype=text'
-        setl conceallevel=0
-        setl nofoldenable
-        setl nowrap
-      ]])
-	vim.api.nvim_buf_set_lines(0, 0, -1, 0, lines)
-
-	vim.cmd('exe "normal! z" .' .. #lines .. '. "\\<cr>"')
-	vim.cmd([[
-        res 15
-      ]])
-
-	vim.api.nvim_buf_set_keymap(0, "n", "q", ":pclose<cr>", { nowait = true, noremap = true, silent = true })
-
-	-- if return_cursor == true then
-	vim.api.nvim_win_set_cursor(CurrentPos["window"], CurrentPos["cursor"])
-	-- end
+	local opts = {
+		origin = "parentwindow",
+		value = 1,
+        lines = lines
+	}
+	local window = Window:new(opts)
+	window:create()
 end
 
 function M.db_selection()
@@ -246,7 +258,7 @@ function M.db_selection()
 	local width = math.ceil(editorWidth * 0.2 - 10)
 	local opts = {
 		style = "minimal",
-		border = "rounded",
+		border = "shadow",
 		relative = "editor",
 		height = height,
 		width = width,
@@ -254,15 +266,15 @@ function M.db_selection()
 		col = math.ceil((editorWidth - width) / 2),
 	}
 	-- and finally create it with buffer attached
-	win = vim.api.nvim_open_win(buf, true, opts)
+	local win = vim.api.nvim_open_win(buf, true, opts)
 	vim.api.nvim_buf_set_lines(buf, 0, 0, -1, M.format_dbs())
 
 	vim.api.nvim_buf_set_keymap(
 		0,
 		"n",
 		"<CR>",
-		':lua require("DB").set_db(' .. win .. ')<CR>',
-		{ nowait = true, noremap = true, silent = true}
+		':lua require("DB").set_db(' .. win .. ")<CR>",
+		{ nowait = true, noremap = true, silent = true }
 	)
 end
 
@@ -276,11 +288,11 @@ function M.format_dbs()
 end
 
 function M.set_db(win)
-    print(vim.inspect(win))
+	print(vim.inspect(win))
 	local line = vim.fn.getline(".")
-    local id = string.sub(line, 1, 1)
-    vim.g.dbconn = DBS[tonumber(id)]
-    vim.api.nvim_win_close(win, true)
+	local id = string.sub(line, 1, 1)
+	vim.g.dbconn = DBS[tonumber(id)]
+	vim.api.nvim_win_close(win, true)
 end
 
 return M

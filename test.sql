@@ -12,5 +12,3 @@ select * from tmp.brabantwonen_sheet2;
 select * from tmp.brabantwonen_sheet1
 union
 select * from tmp.brabantwonen_sheet2;
-
-CREATE TABLE tmp.bra
