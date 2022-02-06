@@ -8,6 +8,7 @@ local vim = vim
 local api = vim.api
 local uv = vim.loop
 local Window = require("DB.window")
+local window
 
 local DBS = {}
 DBS[1] = {
@@ -176,7 +177,7 @@ function DB.Execute(sql)
 		stderr_buffered = true,
 		on_stdout = function(_, data, _)
 			if data[1] ~= "" then
-				DB.open_window(data, false)
+				DB.render(data, false)
 			end
 		end,
 		on_stderr = function(_, err, _)
@@ -202,48 +203,30 @@ function DB.Execute(sql)
 	-- M.open_window(executing, true)
 end
 
--- -- TODO: This is constantly creating the screen again. So if you resized the image, you need to resize after every query
--- -- Fix it so this is a fixed window and does not get re-created if it is already there.
--- -- TODO: Figure out how to create a class for the window to keep track of the state
--- function M.open_window(lines, return_cursor)
--- 	-- TODO: This vim.g.dbwin is not working yet
--- 	-- if not vim.g.dbwin then
--- 	vim.cmd([[
---             pclose
---             keepalt new +setlocal\ previewwindow|setlocal\ buftype=nofile|setlocal\ noswapfile|setlocal\ wrap [Jira]
---             setl bufhidden=wipe
---             setl buftype=nofile
---             setl noswapfile
---             setl nobuflisted
---             setl nospell
---             exe 'setl filetype=text'
---             setl conceallevel=0
---             setl nofoldenable
---             setl nowrap
---           ]])
--- 	-- vim.cmd('exe "normal! z" .' .. #lines .. '. "\\<cr>"')
--- 	vim.cmd([[
---             res 15
---           ]])
--- 	vim.api.nvim_buf_set_keymap(0, "n", "q", ":pclose<cr>", { nowait = true, noremap = true, silent = true })
--- 	-- end
-
--- 	vim.api.nvim_buf_set_lines(0, 0, -1, 0, lines)
--- 	vim.api.nvim_win_set_cursor(CurrentPos["window"], CurrentPos["cursor"])
--- 	if not vim.g.dbwin then
--- 		vim.g.dbwin = vim.api.nvim_get_current_win()
--- 	end
--- end
-
-function DB.open_window(lines, return_cursor)
+function DB.render(lines, return_cursor)
 	local opts = {
 		origin = "parentwindow",
 		value = 1,
-        lines = lines
+		lines = lines,
+		buf = vim.g.dbbuf,
 	}
-	local window = Window:new(opts)
-	window:create()
-    window:fill()
+
+	window = Window:new(opts)
+	if not DB.window_valid() then
+		window:create()
+		window:fill()
+		vim.g.dbbuf = window.buf
+		vim.g.dbwin = window.win
+	else
+		window:fill(vim.g.dbbuf, vim.g.dbwin)
+	end
+end
+
+function DB.window_valid()
+	if vim.g.dbbuf then
+		return vim.api.nvim_buf_is_valid(vim.g.dbbuf)
+	end
+	return false
 end
 
 function DB.db_selection()

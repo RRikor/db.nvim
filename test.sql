@@ -11,3 +11,6 @@ select * from tmp.brabantwonen_sheet2;
 select * from tmp.brabantwonen_sheet1
 union
 select * from tmp.brabantwonen_sheet2;
+
+
+SELECT * FROM nl_data.bag_buildings limit 10000;
