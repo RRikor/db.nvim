@@ -4,21 +4,32 @@
 -- Windows: https://www.2n.pl/blog/how-to-make-ui-for-neovim-plugins-in-lua
 -- Floating windows:  https://www.2n.pl/blog/how-to-write-neovim-plugins-in-lua
 local DB = {}
-DB.__index = DB
 local vim = vim
 local api = vim.api
 local uv = vim.loop
 local Window = require("DB.window")
 
-function DB:new(opts)
-	local this = {
-        dbs = opts.dbs
-    }
-	setmetatable(this, self)
-	return this
-end
-
-
+local DBS = {}
+DBS[1] = {
+	name = "woco-dev",
+	conn = 'psql --host="$RDSDBDEV" --port=5432 --username="$DB_OCTOCVDB_DEV_ROOT_USER" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -L ~/psql.log -f %s 2>&1',
+}
+DBS[2] = {
+	name = "woco-prd",
+	conn = 'psql --host="$RDSDB" --port=5432 --username="$DB_OCTOCVDB_PRD_ROOT_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -L ~/psql.log -f %s 2>&1',
+}
+DBS[3] = {
+	name = "spotr-domain-dev",
+	conn = "psql --host=$RDSDOMAINACC --port=5432 --username=$DB_DOMAIN_API_PRD_USER --password --dbname=$DB_DOMAIN_API_PRD_NAME -w -L ~/psql.log -f %s 2>&1",
+}
+DBS[4] = {
+	name = "spotr-domain-prd",
+	conn = "psql --host=$RDSDOMAINPRD --port=5432 --username=$DB_DOMAIN_API_DEV_USER --password --dbname=$DB_DOMAIN_API_DEV_NAME -w -L ~/psql.log -f %s 2>&1",
+}
+DBS[5] = {
+	name = "FM - Redshift",
+	conn = "psql --host=$REDSHIFT --port=5439 --username=$DB_REDSHIFT_USER --password --dbname=$DB_REDSHIFT_NAME -w -L ~/psql.log -f %s 2>&1",
+}
 if not vim.g.dbconn then
 	vim.g.dbconn = DBS[1]
 end
