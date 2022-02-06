@@ -19,24 +19,13 @@ function Window:new(opts)
 	return this
 end
 
-function Window:isvalid()
-	print("bla2")
-    print("self.buf: ", self.buf)
-    -- print("self.buf: ", self.buf)
-	-- local test1 = vim.api.nvim_buf_is_valid(self.buf)
-	-- print(test1)
-	-- local test2 = vim.api.nvim_buf_is_loaded(self.buf)
-	-- print(test2)
-end
-
 function Window:create()
-    -- print("self.buf: ", self.buf)
-	-- Window:isvalid()
 
 	vim.cmd("split")
 	self.win = vim.api.nvim_get_current_win()
 	self.buf = vim.api.nvim_create_buf(true, true)
 	vim.api.nvim_win_set_buf(self.win, self.buf)
+    vim.api.nvim_win_set_height(self.win, 20)
 
 	vim.api.nvim_buf_set_option(self.buf, "bufhidden", "wipe")
 	vim.api.nvim_buf_set_option(self.buf, "buftype", "nowrite")

@@ -18,7 +18,7 @@ fun! ShowJobs() range abort
     lua require("DB").ShowJobs()
 endfun
 
-fun! DBSelection() range abort
+fun! SwitchDB() range abort
     call Reload()
     lua require("DB").db_selection()
 endfun
@@ -29,8 +29,8 @@ endfun
 
 map <leader>pp :call DB()<CR>
 map <leader>pv :call ShowPreview()<CR>
-map <leader>pn :call CountNrRows()<CR>
+map <leader>pc :call CountNrRows()<CR>
 map <leader>pj :call ShowJobs()<CR>
-map <leader>pc :call DBSelection()<CR>
+map <leader>ps :call SwitchDB()<CR>
 
 

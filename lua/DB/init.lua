@@ -252,6 +252,7 @@ function DB.db_selection()
 	-- and finally create it with buffer attached
 	local win = vim.api.nvim_open_win(buf, true, opts)
 	vim.api.nvim_buf_set_lines(buf, 0, 0, -1, DB.format_dbs())
+    vim.api.nvim_win_set_cursor(win, {1,0})
 
 	vim.api.nvim_buf_set_keymap(
 		0,
@@ -272,10 +273,10 @@ function DB.format_dbs()
 end
 
 function DB.set_db(win)
-	print(vim.inspect(win))
 	local line = vim.fn.getline(".")
 	local id = string.sub(line, 1, 1)
 	vim.g.dbconn = DBS[tonumber(id)]
+    print("Switching connection to", vim.g.dbconn.name)
 	vim.api.nvim_win_close(win, true)
 end
 
