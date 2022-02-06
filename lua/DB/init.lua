@@ -107,12 +107,6 @@ function DB.CountNrRows()
 	end
 end
 
-function DB.StopJob()
-	local wordUnderCursor = vim.fn.expand("<cword>")
-	local sql = "select pg_terminate_backend(" .. wordUnderCursor .. "):"
-	DB.Execute(sql)
-end
-
 function DB.ShowJobs()
 	DB.SetCurrentPosition()
 
@@ -137,10 +131,17 @@ function DB.ShowJobs()
 	vim.api.nvim_buf_set_keymap(
 		0,
 		"n",
-		"<leader>pc",
-		":lua require('DB').StopJob()  ",
-		{ nowait = true, noremap = true }
+		"c",
+		':lua require("DB").StopJob()<CR>',
+		{ nowait = true, noremap = true, silent = true }
 	)
+end
+
+function DB.StopJob()
+	local wordUnderCursor = vim.fn.expand("<cword>")
+	local sql = "select pg_terminate_backend('" .. wordUnderCursor .. "')"
+    print(sql)
+	-- DB.Execute(sql)
 end
 
 function DB.CancelQuery()
@@ -205,12 +206,15 @@ end
 
 function DB.render(lines, return_cursor)
 	local opts = {
-		origin = "parentwindow",
+        -- TODO: Implement this
+		origin = "original_cursor_position",
 		value = 1,
 		lines = lines,
 		buf = vim.g.dbbuf,
 	}
 
+    -- TODO: This has to be moved into execute. Since this only triggers when
+    -- the query returned, the keybindings of the StopJob do not get attached.
 	window = Window:new(opts)
 	if not DB.window_valid() then
 		window:create()
