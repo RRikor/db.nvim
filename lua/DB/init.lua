@@ -10,6 +10,13 @@ local uv = vim.loop
 local Window = require("DB.window")
 local window
 
+local pickers = require("telescope.pickers")
+local finders = require("telescope.finders")
+local conf = require("telescope.config").values
+local actions = require("telescope.actions")
+local action_state = require("telescope.actions.state")
+local previewers = require("telescope.previewers")
+
 local DBS = {}
 DBS[1] = {
 	name = "woco-dev",
@@ -31,6 +38,11 @@ DBS[5] = {
 	name = "FM - Redshift",
 	conn = "psql --host=$REDSHIFT --port=5439 --username=$DB_REDSHIFT_USER --password --dbname=$DB_REDSHIFT_NAME -w -L ~/psql.log -f %s 2>&1",
 }
+DBS[6] = {
+	name = "Aurora",
+	conn = 'psql --host="$AURORA" --port=5432 --username="woco_dev" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -L ~/psql.log -f %s 2>&1',
+}
+
 if not vim.g.dbconn then
 	vim.g.dbconn = DBS[1]
 end
@@ -91,6 +103,21 @@ function DB.ShowPreview()
 	end
 end
 
+function DB.table_details()
+	DB.SetCurrentPosition()
+	local wordUnderCursor = vim.fn.expand("<cword>")
+	local line = vim.fn.getline(".")
+
+	if vim.fn.strpart(line, vim.fn.stridx(line, wordUnderCursor) - 1, 1) == "." then
+		local schema = vim.fn.matchstr(line, [[\v(\w*)(\.\@=)]])
+		local sqlstr = "\\d+ " .. schema .. wordUnderCursor
+		local sql = { sqlstr }
+		DB.Execute(sql)
+	else
+		print("not working yet")
+	end
+end
+
 function DB.CountNrRows()
 	DB.SetCurrentPosition()
 	local wordUnderCursor = vim.fn.expand("<cword>")
@@ -117,7 +144,7 @@ function DB.ShowJobs()
         from pg_stat_activity
         where pid in (
             SELECT distinct 
-                l.pid 
+                l.A72_join_building_idpid 
             FROM pg_locks l 
             JOIN pg_stat_all_tables t ON l.relation = t.relid 
             left join pg_stat_activity as t2 on ( 
@@ -139,9 +166,9 @@ end
 
 function DB.StopJob()
 	local wordUnderCursor = vim.fn.expand("<cword>")
-	local sql = "select pg_terminate_backend('" .. wordUnderCursor .. "')"
-    print(sql)
-	-- DB.Execute(sql)
+	local sql = "select pg_terminate_backend('" .. wordUnderCursor .. "');"
+	print(sql)
+	DB.Execute(sql)
 end
 
 function DB.CancelQuery()
@@ -201,20 +228,38 @@ function DB.Execute(sql)
 		table.insert(executing, data)
 	end
 
-	-- M.open_window(executing, true)
+	DB.render(executing, true)
+end
+
+-- Function that returns data from the db
+function DB.retrieve(sql, cb)
+	DB.Write(sql)
+
+	local job = string.format(vim.g.dbconn.conn, "/tmp/db.sql")
+
+	JobId = vim.fn.jobstart(string.format(job), {
+		stdout_buffered = true,
+		stderr_buffered = true,
+		on_stdout = cb,
+		on_stderr = function(_, err, _)
+			if err[1] ~= "" then
+				print(vim.inspect(err))
+			end
+		end,
+	})
 end
 
 function DB.render(lines, return_cursor)
 	local opts = {
-        -- TODO: Implement this
+		-- TODO: Implement this
 		origin = "original_cursor_position",
 		value = 1,
 		lines = lines,
 		buf = vim.g.dbbuf,
 	}
 
-    -- TODO: This has to be moved into execute. Since this only triggers when
-    -- the query returned, the keybindings of the StopJob do not get attached.
+	-- TODO: This has to be moved into execute. Since this only triggers when
+	-- the query returned, the keybindings of the StopJob do not get attached.
 	window = Window:new(opts)
 	if not DB.window_valid() then
 		window:create()
@@ -256,7 +301,7 @@ function DB.db_selection()
 	-- and finally create it with buffer attached
 	local win = vim.api.nvim_open_win(buf, true, opts)
 	vim.api.nvim_buf_set_lines(buf, 0, 0, -1, DB.format_dbs())
-    vim.api.nvim_win_set_cursor(win, {1,0})
+	vim.api.nvim_win_set_cursor(win, { 1, 0 })
 
 	vim.api.nvim_buf_set_keymap(
 		0,
@@ -280,8 +325,58 @@ function DB.set_db(win)
 	local line = vim.fn.getline(".")
 	local id = string.sub(line, 1, 1)
 	vim.g.dbconn = DBS[tonumber(id)]
-    print("Switching connection to", vim.g.dbconn.name)
+	print("Switching connection to", vim.g.dbconn.name)
 	vim.api.nvim_win_close(win, true)
 end
 
+Result = {}
+function DB.fuzzy()
+	local sql = "SELECT schemaname, tablename FROM pg_tables ORDER BY schemaname, tablename;"
+
+	DB.retrieve(sql,
+        function(_, data, _)
+            local tables = {}
+            for i, value in ipairs(data) do
+                -- Create the correct format, we have to remove 
+                -- the start and end of the output
+                if i > 2 and i < table.maxn(data) - 3 then
+                    local str = vim.fn.substitute(vim.fn.substitute(value, " ", "", "g"), "│", ".", "g")
+                    table.insert(tables, str)
+                end
+            end
+            DB.render_fuzzy(tables)
+        end
+    )
+end
+
+function DB.render_fuzzy(data)
+
+	local fuzzy_tables = function(opts)
+	  opts = opts or {}
+	  pickers.new(opts, {
+	    prompt_title = "DB Table Fuzzy Finder",
+	    finder = finders.new_table {
+	      results = data
+	    },
+	    sorter = conf.generic_sorter(opts),
+        attach_mappings = function(prompt_bufnr, map)
+          actions.select_default:replace(function()
+            actions.close(prompt_bufnr)
+            local selection = action_state.get_selected_entry()
+            local sql = "select * from " .. selection[1] .. " limit 100;"
+            DB.Execute(sql)
+
+          end)
+          return true
+        end,
+        -- TODO: Implement previewr to display columns
+        -- previewer = previewers.new_buffer_previewer(opts)
+	  }):find()
+	end
+	-- to execute the function
+	fuzzy_tables()
+end
+
 return DB
+
+

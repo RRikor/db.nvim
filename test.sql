@@ -12,5 +12,5 @@ select * from tmp.brabantwonen_sheet1
 union
 select * from tmp.brabantwonen_sheet2;
 
-
-SELECT * FROM nl_data.bag_buildings limit 10000;
+SELECT schemaname, tablename FROM pg_tables
+ORDER BY schemaname, tablename;
