@@ -144,7 +144,7 @@ function DB.ShowJobs()
         from pg_stat_activity
         where pid in (
             SELECT distinct 
-                l.A72_join_building_idpid 
+                l.pid 
             FROM pg_locks l 
             JOIN pg_stat_all_tables t ON l.relation = t.relid 
             left join pg_stat_activity as t2 on ( 
@@ -153,15 +153,13 @@ function DB.ShowJobs()
                 t.schemaname <> 'pg_toast'::name 
                 AND t.schemaname <> 'pg_catalog'::name
         );]]
-	DB.Execute(sql)
+	DB.Execute(sql, {
+        keys = {
+            {'c', ':lua require("DB").StopJob()'},
+        }
+    })
 
-	vim.api.nvim_buf_set_keymap(
-		0,
-		"n",
-		"c",
-		':lua require("DB").StopJob()<CR>',
-		{ nowait = true, noremap = true, silent = true }
-	)
+
 end
 
 function DB.StopJob()
@@ -193,7 +191,8 @@ function DB.Write(sql_table)
 end
 
 -- TODO: DB selection works, try with <leader>pc. Now hook DB selection up with execute method here
-function DB.Execute(sql)
+function DB.Execute(sql, opts)
+    opts = opts or {}
 	DB.Write(sql)
 
 	local job = string.format(vim.g.dbconn.conn, "/tmp/db.sql")
@@ -205,7 +204,7 @@ function DB.Execute(sql)
 		stderr_buffered = true,
 		on_stdout = function(_, data, _)
 			if data[1] ~= "" then
-				DB.render(data, false)
+				DB.render(data, opts)
 			end
 		end,
 		on_stderr = function(_, err, _)
@@ -228,7 +227,7 @@ function DB.Execute(sql)
 		table.insert(executing, data)
 	end
 
-	DB.render(executing, true)
+	DB.render(executing, opts)
 end
 
 -- Function that returns data from the db
@@ -249,18 +248,16 @@ function DB.retrieve(sql, cb)
 	})
 end
 
-function DB.render(lines, return_cursor)
-	local opts = {
-		-- TODO: Implement this
-		origin = "original_cursor_position",
-		value = 1,
-		lines = lines,
-		buf = vim.g.dbbuf,
-	}
-
+function DB.render(lines, opts)
 	-- TODO: This has to be moved into execute. Since this only triggers when
 	-- the query returned, the keybindings of the StopJob do not get attached.
-	window = Window:new(opts)
+	window = Window:new({
+		origin = "original_cursor_position",
+		value = 1,
+        keys = opts,
+		lines = lines,
+		buf = vim.g.dbbuf,
+    })
 	if not DB.window_valid() then
 		window:create()
 		window:fill()
@@ -337,7 +334,7 @@ function DB.fuzzy()
         function(_, data, _)
             local tables = {}
             for i, value in ipairs(data) do
-                -- Create the correct format, we have to remove 
+                -- Create the correct format, we have to remove
                 -- the start and end of the output
                 if i > 2 and i < table.maxn(data) - 3 then
                     local str = vim.fn.substitute(vim.fn.substitute(value, " ", "", "g"), "│", ".", "g")
