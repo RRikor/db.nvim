@@ -14,3 +14,6 @@ select * from tmp.brabantwonen_sheet2;
 
 SELECT schemaname, tablename FROM pg_tables
 ORDER BY schemaname, tablename;
+
+
+INSERT INTO nl_data.bag_buildings SELECT * FROM tmp.bag_buildings;

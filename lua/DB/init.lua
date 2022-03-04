@@ -328,7 +328,7 @@ end
 
 Result = {}
 function DB.fuzzy()
-	local sql = "SELECT schemaname, tablename FROM pg_tables ORDER BY schemaname, tablename;"
+	local sql = "SELECT table_schema, table_name FROM information_schema.tables ORDER BY table_schema, table_name;"
 
 	DB.retrieve(sql,
         function(_, data, _)
@@ -360,7 +360,7 @@ function DB.render_fuzzy(data)
           actions.select_default:replace(function()
             actions.close(prompt_bufnr)
             local selection = action_state.get_selected_entry()
-            local sql = "select * from " .. selection[1] .. " limit 100;"
+            local sql = "select * from " .. selection[1] .. " limit 50;"
             DB.Execute(sql)
 
           end)
