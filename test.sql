@@ -1,4 +1,4 @@
-select * from nl_data.corporations
+select * from nl_data.corporations;
 
 create table tmp.brabantwonen_stacked as
 create table tmp.brabantwonen_stacked as

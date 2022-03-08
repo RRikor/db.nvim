@@ -20,27 +20,27 @@ local previewers = require("telescope.previewers")
 local DBS = {}
 DBS[1] = {
 	name = "woco-dev",
-	conn = 'psql --host="$RDSDBDEV" --port=5432 --username="$DB_OCTOCVDB_DEV_ROOT_USER" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -L ~/psql.log -f %s 2>&1',
+	conn = 'psql --host="$RDSDBDEV" --port=5432 --username="$DB_OCTOCVDB_DEV_ROOT_USER" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -f %s 2>&1',
 }
 DBS[2] = {
 	name = "woco-prd",
-	conn = 'psql --host="$RDSDB" --port=5432 --username="$DB_OCTOCVDB_PRD_ROOT_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -L ~/psql.log -f %s 2>&1',
+	conn = 'psql --host="$RDSDB" --port=5432 --username="$DB_OCTOCVDB_PRD_ROOT_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -f %s 2>&1',
 }
 DBS[3] = {
 	name = "spotr-domain-dev",
-	conn = "psql --host=$RDSDOMAINACC --port=5432 --username=$DB_DOMAIN_API_PRD_USER --password --dbname=$DB_DOMAIN_API_PRD_NAME -w -L ~/psql.log -f %s 2>&1",
+	conn = "psql --host=$RDSDOMAINACC --port=5432 --username=$DB_DOMAIN_API_PRD_USER --password --dbname=$DB_DOMAIN_API_PRD_NAME -w -f %s 2>&1",
 }
 DBS[4] = {
 	name = "spotr-domain-prd",
-	conn = "psql --host=$RDSDOMAINPRD --port=5432 --username=$DB_DOMAIN_API_DEV_USER --password --dbname=$DB_DOMAIN_API_DEV_NAME -w -L ~/psql.log -f %s 2>&1",
+	conn = "psql --host=$RDSDOMAINPRD --port=5432 --username=$DB_DOMAIN_API_DEV_USER --password --dbname=$DB_DOMAIN_API_DEV_NAME -w -f %s 2>&1",
 }
 DBS[5] = {
 	name = "FM - Redshift",
-	conn = "psql --host=$REDSHIFT --port=5439 --username=$DB_REDSHIFT_USER --password --dbname=$DB_REDSHIFT_NAME -w -L ~/psql.log -f %s 2>&1",
+	conn = "psql --host=$REDSHIFT --port=5439 --username=$DB_REDSHIFT_USER --password --dbname=$DB_REDSHIFT_NAME -w -f %s 2>&1",
 }
 DBS[6] = {
 	name = "Aurora",
-	conn = 'psql --host="$AURORA" --port=5432 --username="woco_dev" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -L ~/psql.log -f %s 2>&1',
+	conn = 'psql --host="$AURORA" --port=5432 --username="woco_dev" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -f %s 2>&1',
 }
 
 if not vim.g.dbconn then
@@ -87,51 +87,40 @@ function DB.SetCurrentPosition()
 	CurrentPos["cursor"] = cursor
 end
 
+function DB.getSchemaAndTable()
+	local wordUnderCursor = vim.fn.expand("<cWORD>")
+    local cleanup = vim.fn.substitute(wordUnderCursor, ";", "", "g")
+    return cleanup
+end
+
 function DB.ShowPreview()
 	DB.SetCurrentPosition()
-	local wordUnderCursor = vim.fn.expand("<cword>")
-	local line = vim.fn.getline(".")
-
-	if vim.fn.strpart(line, vim.fn.stridx(line, wordUnderCursor) - 1, 1) == "." then
-		local schema = vim.fn.matchstr(line, [[\v(\w*)(\.\@=)]])
-		local sqlstr = "select * from " .. schema .. wordUnderCursor .. " limit 50;"
-
-		local sql = { sqlstr }
-		DB.Execute(sql)
-	else
-		print("not working yet")
-	end
+    local schemaTable = DB.getSchemaAndTable()
+    local sql = {"select * from " .. schemaTable .. " limit 50;"}
+    DB.Execute(sql, {schemaTable = schemaTable})
 end
 
 function DB.table_details()
 	DB.SetCurrentPosition()
-	local wordUnderCursor = vim.fn.expand("<cword>")
-	local line = vim.fn.getline(".")
-
-	if vim.fn.strpart(line, vim.fn.stridx(line, wordUnderCursor) - 1, 1) == "." then
-		local schema = vim.fn.matchstr(line, [[\v(\w*)(\.\@=)]])
-		local sqlstr = "\\d+ " .. schema .. wordUnderCursor
-		local sql = { sqlstr }
-		DB.Execute(sql)
-	else
-		print("not working yet")
-	end
+    local schemaTable = DB.getSchemaAndTable()
+    local sql = {"\\d+ " .. schemaTable}
+    DB.Execute(sql, {schemaTable = schemaTable})
 end
 
 function DB.CountNrRows()
 	DB.SetCurrentPosition()
-	local wordUnderCursor = vim.fn.expand("<cword>")
-	local line = vim.fn.getline(".")
+    local schemaTable = DB.getSchemaAndTable()
+    local sql = {"select count(*) from " .. schemaTable .. ";"}
+    DB.Execute(sql, {schemaTable = schemaTable})
+end
 
-	if vim.fn.strpart(line, vim.fn.stridx(line, wordUnderCursor) - 1, 1) == "." then
-		local schema = vim.fn.matchstr(line, [[\v(\w*)(\.\@=)]])
-		local sqlstr = "select count(*) from " .. schema .. wordUnderCursor .. ";"
-
-		local sql = { sqlstr }
-		DB.Execute(sql)
-	else
-		print("not working yet")
-	end
+function DB.CountDistinct()
+    local column = vim.fn.expand("<cword>")
+    local sql = {
+        "SELECT " .. column .. ", count(" .. column .. ") as telling from " .. vim.g.dbtable .. " group by " .. column .. " order by telling desc;"
+    }
+    print(vim.inspect(sql))
+    DB.Execute(sql)
 end
 
 function DB.ShowJobs()
@@ -251,13 +240,14 @@ end
 function DB.render(lines, opts)
 	-- TODO: This has to be moved into execute. Since this only triggers when
 	-- the query returned, the keybindings of the StopJob do not get attached.
-	window = Window:new({
-		origin = "original_cursor_position",
-		value = 1,
-        keys = opts,
-		lines = lines,
-		buf = vim.g.dbbuf,
-    })
+    opts['origin'] = 'original_cursor_position'
+    opts['value'] = 1
+    opts['lines'] = lines
+    opts['buf'] = vim.g.dbbuf
+	window = Window:new(opts)
+
+    vim.g.dbtable = opts.schemaTable
+
 	if not DB.window_valid() then
 		window:create()
 		window:fill()

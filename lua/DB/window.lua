@@ -7,7 +7,7 @@ function Window:new(opts)
 		value = opts.value,
 		lines = opts.lines,
 		buff = opts.buff,
-        keys = opts.keys
+        keys = opts.keys,
 	}
 	setmetatable(this, self)
 	return this
@@ -32,10 +32,11 @@ function Window:create()
 	vim.api.nvim_win_set_option(self.win, "fcs", "eob: ")
 	vim.api.nvim_buf_set_option(self.buf, "filetype", "DB")
 
-    local keyopts = { nowait = true, noremap = true, silent = true }
-    -- TODO: This is not pretty, but works for now. How to pass an array of objects?
-    for i, value in pairs(self.keys) do
-        vim.api.nvim_buf_set_keymap(self.buf, "n", value[1][1], value[1][2] .. '<CR>', keyopts)
+    if self.keys ~= nil then
+        local keyopts = { nowait = true, noremap = true, silent = true }
+        for _, value in pairs(self.keys) do
+            vim.api.nvim_buf_set_keymap(self.buf, "n", value[1], value[2] .. '<CR>', keyopts)
+        end
     end
 end
 
