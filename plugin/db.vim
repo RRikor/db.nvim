@@ -28,11 +28,6 @@ fun! TableDetails() range abort
     lua require("DB").table_details()
 endfun
 
-fun! CountDistinct() range abort
-    call Reload()
-    lua require("DB").CountDistinct()
-endfun
-
 fun! DBFuzzy() range abort
     call Reload()
     lua require("DB").render_fuzzy()
@@ -49,7 +44,6 @@ map <leader>pj :call ShowJobs()<CR>
 map <leader>ps :call SwitchDB()<CR>
 map <leader>p+ :call TableDetails()<CR>
 map <leader>pf :call DBFuzzy()<CR>
-map <leader>pd :call CountDistinct()<CR>
 
 
 

@@ -180,7 +180,7 @@ function DB.Filter()
 	end
 
 	-- Find the value under the cursor
-	local current_row = api.nvim_buf_get_lines(vim.g.dbbuf, cursor[1], cursor[1] + 1, false)
+	local current_row = api.nvim_buf_get_lines(vim.g.dbbuf, cursor[1] - 1, cursor[1], false)
 	res = vim.fn.split(current_row[1], "│")
 	local values = {}
 	for _, val in ipairs(res) do

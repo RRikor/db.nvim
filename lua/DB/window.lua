@@ -40,6 +40,7 @@ function Window:create()
     end
 
     vim.api.nvim_buf_set_keymap(self.buf, "n", "f", ':lua require("DB").Filter()<CR>', keyopts)
+    vim.api.nvim_buf_set_keymap(self.buf, "n", "d", ':lua require("DB").CountDistinct()<CR>', keyopts)
 end
 
 function Window:fill(buf, win)
