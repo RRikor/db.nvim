@@ -33,6 +33,11 @@ fun! CountDistinct() range abort
     lua require("DB").CountDistinct()
 endfun
 
+fun! DBFuzzy() range abort
+    call Reload()
+    lua require("DB").render_fuzzy()
+endfun
+
 fun! Reload()
     lua for k in pairs(package.loaded) do if k:match("^DB") then package.loaded[k] = nil end end
 endfun

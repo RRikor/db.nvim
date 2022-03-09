@@ -89,38 +89,137 @@ end
 
 function DB.getSchemaAndTable()
 	local wordUnderCursor = vim.fn.expand("<cWORD>")
-    local cleanup = vim.fn.substitute(wordUnderCursor, ";", "", "g")
-    return cleanup
+	local cleanup = vim.fn.substitute(wordUnderCursor, ";", "", "g")
+	return cleanup
 end
 
 function DB.ShowPreview()
 	DB.SetCurrentPosition()
-    local schemaTable = DB.getSchemaAndTable()
-    local sql = {"select * from " .. schemaTable .. " limit 50;"}
-    DB.Execute(sql, {schemaTable = schemaTable})
+	local schemaTable = DB.getSchemaAndTable()
+	local sql = { "select * from " .. schemaTable .. " limit 50;" }
+	DB.Execute(sql, { schemaTable = schemaTable })
 end
 
 function DB.table_details()
 	DB.SetCurrentPosition()
-    local schemaTable = DB.getSchemaAndTable()
-    local sql = {"\\d+ " .. schemaTable}
-    DB.Execute(sql, {schemaTable = schemaTable})
+	local schemaTable = DB.getSchemaAndTable()
+	local sql = { "\\d+ " .. schemaTable }
+	DB.Execute(sql, { schemaTable = schemaTable })
 end
 
 function DB.CountNrRows()
 	DB.SetCurrentPosition()
-    local schemaTable = DB.getSchemaAndTable()
-    local sql = {"select count(*) from " .. schemaTable .. ";"}
-    DB.Execute(sql, {schemaTable = schemaTable})
+	local schemaTable = DB.getSchemaAndTable()
+	local sql = { "select count(*) from " .. schemaTable .. ";" }
+	DB.Execute(sql, { schemaTable = schemaTable })
 end
 
 function DB.CountDistinct()
-    local column = vim.fn.expand("<cword>")
-    local sql = {
-        "SELECT " .. column .. ", count(" .. column .. ") as telling from " .. vim.g.dbtable .. " group by " .. column .. " order by telling desc;"
-    }
-    print(vim.inspect(sql))
-    DB.Execute(sql)
+	local column = vim.fn.expand("<cword>")
+
+	local sql = {}
+	if vim.g.dbtable ~= nil then
+		sql = {
+			"SELECT "
+				.. column
+				.. ", count("
+				.. column
+				.. ") as telling from "
+				.. vim.g.dbtable
+				.. " group by "
+				.. column
+				.. " order by telling desc;",
+		}
+	else
+		sql = {
+			"SELECT sub."
+				.. column
+				.. ", count(sub."
+				.. column
+				.. ") as telling FROM ("
+				.. vim.g.dbsql
+				.. ") as sub group by sub."
+				.. column
+				.. " order by telling desc;",
+		}
+	end
+	DB.Execute(sql, { saveQuery = false })
+end
+
+function DB.Filter()
+	local first_row = api.nvim_buf_get_lines(vim.g.dbbuf, 0, 1, false)
+	local cursor = api.nvim_win_get_cursor(vim.g.dbwin)
+
+	-- Find the column separatar locations
+	local splits = {}
+	local a = 1
+	splits[a] = vim.fn.stridx(first_row[1], "│")
+	repeat
+		local foo = vim.fn.stridx(first_row[1], "│", splits[a] + 1)
+		a = a + 1
+		splits[a] = foo
+	until foo == -1
+
+	-- Split the columns into a table
+	local res = vim.fn.split(first_row[1], "│")
+	local columns = {}
+	for _, val in ipairs(res) do
+		table.insert(columns, vim.fn.trim(val))
+	end
+
+	-- Now find the column of the cursor position
+	local current_col = ""
+	for i, val in ipairs(splits) do
+		if val > cursor[2] then
+			current_col = columns[i]
+			break
+        elseif val == -1 then
+            current_col = columns[table.maxn(columns)]
+            break
+		end
+	end
+
+	-- Find the value under the cursor
+	local current_row = api.nvim_buf_get_lines(vim.g.dbbuf, cursor[1], cursor[1] + 1, false)
+	res = vim.fn.split(current_row[1], "│")
+	local values = {}
+	for _, val in ipairs(res) do
+		table.insert(values, vim.fn.trim(val))
+	end
+	local value = ""
+	for i, val in ipairs(splits) do
+		if val > cursor[2] then
+			value = values[i]
+			break
+        elseif val == -1 then
+            value = values[table.maxn(values)]
+            break
+		end
+	end
+
+    -- Debug values
+    -- print(vim.inspect(values))
+    -- print(vim.inspect(columns))
+    -- print(vim.inspect(splits))
+    -- print(vim.inspect(cursor))
+    -- print(vim.inspect(current_col))
+    -- print(vim.inspect(value))
+
+	-- TODO: Finish a check if we need quotes or not
+	local quoted_val = "'" .. value .. "'"
+
+	-- Construct the sql
+	local sql = ""
+	if vim.g.dbtable ~= nil then
+		sql = {
+			"SELECT * from " .. vim.g.dbtable .. " where " .. current_col .. " = " .. quoted_val .. ";",
+		}
+	else
+		sql = {
+			"SELECT sub.* from (" .. vim.g.dbsql .. ") as sub where sub." .. current_col .. " = " .. quoted_val .. ";",
+		}
+	end
+	DB.Execute(sql, { saveQuery = false })
 end
 
 function DB.ShowJobs()
@@ -143,12 +242,10 @@ function DB.ShowJobs()
                 AND t.schemaname <> 'pg_catalog'::name
         );]]
 	DB.Execute(sql, {
-        keys = {
-            {'c', ':lua require("DB").StopJob()'},
-        }
-    })
-
-
+		keys = {
+			{ "c", ':lua require("DB").StopJob()' },
+		},
+	})
 end
 
 function DB.StopJob()
@@ -179,9 +276,21 @@ function DB.Write(sql_table)
 	uv.fs_close(fd)
 end
 
--- TODO: DB selection works, try with <leader>pc. Now hook DB selection up with execute method here
 function DB.Execute(sql, opts)
-    opts = opts or {}
+	opts = opts or {}
+
+	if opts.saveQuery ~= false then
+		local sqlstr = ""
+		for _, line in ipairs(sql) do
+			sqlstr = sqlstr .. line .. " "
+		end
+		sqlstr = vim.fn.substitute(sqlstr, ";", "", "g")
+		sqlstr = vim.fn.substitute(sqlstr, "/\\*", "", "g")
+		sqlstr = vim.fn.substitute(sqlstr, "\\*/", "", "g")
+		sqlstr = vim.fn.substitute(sqlstr, "--", "", "g")
+		vim.g.dbsql = sqlstr
+	end
+
 	DB.Write(sql)
 
 	local job = string.format(vim.g.dbconn.conn, "/tmp/db.sql")
@@ -238,15 +347,13 @@ function DB.retrieve(sql, cb)
 end
 
 function DB.render(lines, opts)
-	-- TODO: This has to be moved into execute. Since this only triggers when
-	-- the query returned, the keybindings of the StopJob do not get attached.
-    opts['origin'] = 'original_cursor_position'
-    opts['value'] = 1
-    opts['lines'] = lines
-    opts['buf'] = vim.g.dbbuf
+	opts["origin"] = "original_cursor_position"
+	opts["value"] = 1
+	opts["lines"] = lines
+	opts["buf"] = vim.g.dbbuf
 	window = Window:new(opts)
 
-    vim.g.dbtable = opts.schemaTable
+	vim.g.dbtable = opts.schemaTable
 
 	if not DB.window_valid() then
 		window:create()
@@ -320,50 +427,44 @@ Result = {}
 function DB.fuzzy()
 	local sql = "SELECT table_schema, table_name FROM information_schema.tables ORDER BY table_schema, table_name;"
 
-	DB.retrieve(sql,
-        function(_, data, _)
-            local tables = {}
-            for i, value in ipairs(data) do
-                -- Create the correct format, we have to remove
-                -- the start and end of the output
-                if i > 2 and i < table.maxn(data) - 3 then
-                    local str = vim.fn.substitute(vim.fn.substitute(value, " ", "", "g"), "│", ".", "g")
-                    table.insert(tables, str)
-                end
-            end
-            DB.render_fuzzy(tables)
-        end
-    )
+	DB.retrieve(sql, function(_, data, _)
+		local tables = {}
+		for i, value in ipairs(data) do
+			-- Create the correct format, we have to remove
+			-- the start and end of the output
+			if i > 2 and i < table.maxn(data) - 3 then
+				local str = vim.fn.substitute(vim.fn.substitute(value, " ", "", "g"), "│", ".", "g")
+				table.insert(tables, str)
+			end
+		end
+		DB.render_fuzzy(tables)
+	end)
 end
 
 function DB.render_fuzzy(data)
-
 	local fuzzy_tables = function(opts)
-	  opts = opts or {}
-	  pickers.new(opts, {
-	    prompt_title = "DB Table Fuzzy Finder",
-	    finder = finders.new_table {
-	      results = data
-	    },
-	    sorter = conf.generic_sorter(opts),
-        attach_mappings = function(prompt_bufnr, map)
-          actions.select_default:replace(function()
-            actions.close(prompt_bufnr)
-            local selection = action_state.get_selected_entry()
-            local sql = "select * from " .. selection[1] .. " limit 50;"
-            DB.Execute(sql)
-
-          end)
-          return true
-        end,
-        -- TODO: Implement previewr to display columns
-        -- previewer = previewers.new_buffer_previewer(opts)
-	  }):find()
+		opts = opts or {}
+		pickers.new(opts, {
+			prompt_title = "DB Table Fuzzy Finder",
+			finder = finders.new_table({
+				results = data,
+			}),
+			sorter = conf.generic_sorter(opts),
+			attach_mappings = function(prompt_bufnr, map)
+				actions.select_default:replace(function()
+					actions.close(prompt_bufnr)
+					local selection = action_state.get_selected_entry()
+					local sql = "select * from " .. selection[1] .. " limit 50;"
+					DB.Execute(sql)
+				end)
+				return true
+			end,
+			-- TODO: Implement previewr to display columns
+			-- previewer = previewers.new_buffer_previewer(opts)
+		}):find()
 	end
 	-- to execute the function
 	fuzzy_tables()
 end
 
 return DB
-
-

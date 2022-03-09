@@ -32,12 +32,14 @@ function Window:create()
 	vim.api.nvim_win_set_option(self.win, "fcs", "eob: ")
 	vim.api.nvim_buf_set_option(self.buf, "filetype", "DB")
 
+    local keyopts = { nowait = true, noremap = true, silent = true }
     if self.keys ~= nil then
-        local keyopts = { nowait = true, noremap = true, silent = true }
         for _, value in pairs(self.keys) do
             vim.api.nvim_buf_set_keymap(self.buf, "n", value[1], value[2] .. '<CR>', keyopts)
         end
     end
+
+    vim.api.nvim_buf_set_keymap(self.buf, "n", "f", ':lua require("DB").Filter()<CR>', keyopts)
 end
 
 function Window:fill(buf, win)
