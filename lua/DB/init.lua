@@ -242,6 +242,7 @@ function DB.ShowJobs()
                 AND t.schemaname <> 'pg_catalog'::name
         );]]
 	DB.Execute(sql, {
+        saveQuery = false,
 		keys = {
 			{ "c", ':lua require("DB").StopJob()' },
 		},
@@ -252,7 +253,7 @@ function DB.StopJob()
 	local wordUnderCursor = vim.fn.expand("<cword>")
 	local sql = "select pg_terminate_backend('" .. wordUnderCursor .. "');"
 	print(sql)
-	DB.Execute(sql)
+	DB.Execute(sql, {saveQuery = false})
 end
 
 function DB.CancelQuery()
@@ -455,7 +456,7 @@ function DB.render_fuzzy(data)
 					actions.close(prompt_bufnr)
 					local selection = action_state.get_selected_entry()
 					local sql = "select * from " .. selection[1] .. " limit 50;"
-					DB.Execute(sql)
+					DB.Execute({sql}, {})
 				end)
 				return true
 			end,

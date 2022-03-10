@@ -30,7 +30,7 @@ endfun
 
 fun! DBFuzzy() range abort
     call Reload()
-    lua require("DB").render_fuzzy()
+    lua require("DB").fuzzy()
 endfun
 
 fun! Reload()
