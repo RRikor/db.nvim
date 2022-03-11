@@ -205,18 +205,22 @@ function DB.Filter()
     -- print(vim.inspect(current_col))
     -- print(vim.inspect(value))
 
-	-- TODO: Finish a check if we need quotes or not
-	local quoted_val = "'" .. value .. "'"
-
+	-- TODO: Finish a check if value is a string or numeric
+    local where = ""
+    if value == '¤' then
+        where = ' is NULL';
+    else
+        where = " = '" .. value .. "';"
+    end
 	-- Construct the sql
 	local sql = ""
 	if vim.g.dbtable ~= nil then
 		sql = {
-			"SELECT * from " .. vim.g.dbtable .. " where " .. current_col .. " = " .. quoted_val .. ";",
+			"SELECT * from " .. vim.g.dbtable .. " where " .. current_col .. where,
 		}
 	else
 		sql = {
-			"SELECT sub.* from (" .. vim.g.dbsql .. ") as sub where sub." .. current_col .. " = " .. quoted_val .. ";",
+			"SELECT sub.* from (" .. vim.g.dbsql .. ") as sub where sub." .. current_col .. where,
 		}
 	end
 	DB.Execute(sql, { saveQuery = false })
