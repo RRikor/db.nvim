@@ -39,7 +39,8 @@ function Window:create()
         end
     end
 
-    vim.api.nvim_buf_set_keymap(self.buf, "n", "f", ':lua require("DB").Filter()<CR>', keyopts)
+    vim.api.nvim_buf_set_keymap(self.buf, "n", "f", ':lua require("DB").Filter_value()<CR>', keyopts)
+    vim.api.nvim_buf_set_keymap(self.buf, "n", "c", ':lua require("DB").Filter_count()<CR>', keyopts)
     vim.api.nvim_buf_set_keymap(self.buf, "n", "d", ':lua require("DB").CountDistinct()<CR>', keyopts)
 end
 

@@ -146,7 +146,8 @@ function DB.CountDistinct()
 	DB.Execute(sql, { saveQuery = false })
 end
 
-function DB.Filter()
+function DB.get_filter_values()
+
 	local first_row = api.nvim_buf_get_lines(vim.g.dbbuf, 0, 1, false)
 	local cursor = api.nvim_win_get_cursor(vim.g.dbwin)
 
@@ -212,7 +213,14 @@ function DB.Filter()
     else
         where = " = '" .. value .. "';"
     end
-	-- Construct the sql
+
+    return where, current_col
+end
+
+function DB.Filter_value()
+
+    local where, current_col = DB.get_filter_values()
+
 	local sql = ""
 	if vim.g.dbtable ~= nil then
 		sql = {
@@ -221,6 +229,22 @@ function DB.Filter()
 	else
 		sql = {
 			"SELECT sub.* from (" .. vim.g.dbsql .. ") as sub where sub." .. current_col .. where,
+		}
+	end
+	DB.Execute(sql, { saveQuery = false })
+end
+
+function DB.Filter_count()
+
+    local where, current_col = DB.get_filter_values()
+	local sql = ""
+	if vim.g.dbtable ~= nil then
+		sql = {
+			"SELECT count(*) from " .. vim.g.dbtable .. " where " .. current_col .. where,
+		}
+	else
+		sql = {
+			"SELECT count(sub.*) from (" .. vim.g.dbsql .. ") as sub where sub." .. current_col .. where,
 		}
 	end
 	DB.Execute(sql, { saveQuery = false })
@@ -358,7 +382,9 @@ function DB.render(lines, opts)
 	opts["buf"] = vim.g.dbbuf
 	window = Window:new(opts)
 
-	vim.g.dbtable = opts.schemaTable
+    if opts.schemaTable ~= nil then
+        vim.g.dbtable = opts.schemaTable
+    end
 
 	if not DB.window_valid() then
 		window:create()
