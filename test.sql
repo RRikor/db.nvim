@@ -19,3 +19,4 @@ ORDER BY schemaname, tablename;
 INSERT INTO nl_data.bag_buildings SELECT * FROM tmp.bag_buildings;
 
 SELECT * FROM nl_data.corporations WHERE cyclomedia_support IS TRUE;
+

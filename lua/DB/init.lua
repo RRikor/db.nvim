@@ -15,7 +15,6 @@ local finders = require("telescope.finders")
 local conf = require("telescope.config").values
 local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
-local previewers = require("telescope.previewers")
 
 local DBS = {}
 DBS[1] = {
@@ -89,8 +88,9 @@ end
 
 function DB.getSchemaAndTable()
 	local wordUnderCursor = vim.fn.expand("<cWORD>")
-	local cleanup = vim.fn.substitute(wordUnderCursor, ";", "", "g")
-	return cleanup
+	local cleanup1 = vim.fn.substitute(wordUnderCursor, ";", "", "g")
+	local cleanup2 = vim.fn.substitute(cleanup1, ")", "", "g")
+	return cleanup2
 end
 
 function DB.ShowPreview()
@@ -384,6 +384,8 @@ function DB.render(lines, opts)
 
     if opts.schemaTable ~= nil then
         vim.g.dbtable = opts.schemaTable
+    else
+        vim.g.dbtable = nil
     end
 
 	if not DB.window_valid() then
