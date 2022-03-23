@@ -128,7 +128,7 @@ function DB.CountDistinct()
 				.. vim.g.dbtable
 				.. " group by "
 				.. column
-				.. " order by telling desc;",
+				.. " order by telling desc limit 50;",
 		}
 	else
 		sql = {
@@ -140,7 +140,7 @@ function DB.CountDistinct()
 				.. vim.g.dbsql
 				.. ") as sub group by sub."
 				.. column
-				.. " order by telling desc;",
+				.. " order by telling desc limit 50;",
 		}
 	end
 	DB.Execute(sql, { saveQuery = false })
@@ -272,7 +272,7 @@ function DB.ShowJobs()
 	DB.Execute(sql, {
         saveQuery = false,
 		keys = {
-			{ "c", ':lua require("DB").StopJob()' },
+			{ "s", ':lua require("DB").StopJob()' },
 		},
 	})
 end
@@ -317,6 +317,7 @@ function DB.Execute(sql, opts)
 		sqlstr = vim.fn.substitute(sqlstr, "/\\*", "", "g")
 		sqlstr = vim.fn.substitute(sqlstr, "\\*/", "", "g")
 		sqlstr = vim.fn.substitute(sqlstr, "--", "", "g")
+		sqlstr = vim.fn.substitute(sqlstr, "limit \\d*", "", "g")
 		vim.g.dbsql = sqlstr
 	end
 
@@ -449,6 +450,8 @@ function DB.format_dbs()
 end
 
 function DB.set_db(win)
+    -- TODO: When switching connections, also switch vim-dadbod-completion source:
+    -- ~//./.config/nvim/mod/plugs/dadbod.vim
 	local line = vim.fn.getline(".")
 	local id = string.sub(line, 1, 1)
 	vim.g.dbconn = DBS[tonumber(id)]
@@ -487,7 +490,14 @@ function DB.render_fuzzy(data)
 				actions.select_default:replace(function()
 					actions.close(prompt_bufnr)
 					local selection = action_state.get_selected_entry()
-					local sql = "select * from " .. selection[1] .. " limit 50;"
+                    local limit = ''
+                    print(vim.inspect(selection))
+                    if selection[1] == 'nl_data.corporations' then
+                        limit = ''
+                    else
+                        limit = ' limit 50'
+                    end
+					local sql = "select * from " .. selection[1] .. limit .. ";"
 					DB.Execute({sql}, {})
 				end)
 				return true
