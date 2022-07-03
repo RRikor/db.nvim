@@ -38,8 +38,12 @@ DBS[5] = {
 	conn = "psql --host=$REDSHIFT --port=5439 --username=$DB_REDSHIFT_USER --password --dbname=$DB_REDSHIFT_NAME -w -f %s 2>&1",
 }
 DBS[6] = {
-	name = "Aurora",
-	conn = 'psql --host="$AURORA" --port=5432 --username="woco_dev" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -f %s 2>&1',
+	name = "surveyor-prd",
+	conn = 'psql --host="$SURVEYOR_PRD" --port=5432 --username="$DB_SURVEYOR_PRD_USER" --password --dbname="$DB_SURVEYOR_PRD_DB_NAME" -w -f %s 2>&1',
+}
+DBS[7] = {
+	name = "condition-dev",
+	conn = 'psql --host="$CONDITION_DEV" --port=5432 --username="$DB_CONDITION_DEV_USER" --password --dbname="$DB_CONDITION_DEV_DB_NAME" -w -f %s 2>&1',
 }
 
 if not vim.g.dbconn then
@@ -97,6 +101,13 @@ function DB.ShowPreview()
 	DB.SetCurrentPosition()
 	local schemaTable = DB.getSchemaAndTable()
 	local sql = { "select * from " .. schemaTable .. " limit 50;" }
+	DB.Execute(sql, { schemaTable = schemaTable })
+end
+
+function DB.ShowFull()
+	DB.SetCurrentPosition()
+	local schemaTable = DB.getSchemaAndTable()
+	local sql = { "select * from " .. schemaTable .. ";" }
 	DB.Execute(sql, { schemaTable = schemaTable })
 end
 
@@ -491,7 +502,6 @@ function DB.render_fuzzy(data)
 					actions.close(prompt_bufnr)
 					local selection = action_state.get_selected_entry()
                     local limit = ''
-                    print(vim.inspect(selection))
                     if selection[1] == 'nl_data.corporations' then
                         limit = ''
                     else

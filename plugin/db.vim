@@ -8,6 +8,11 @@ fun! ShowPreview() range abort
     lua require("DB").ShowPreview()
 endfun
 
+fun! ShowFull() range abort
+    call Reload()
+    lua require("DB").ShowFull()
+endfun
+
 fun! CountNrRows() range abort
     call Reload()
     lua require("DB").CountNrRows()
@@ -39,11 +44,12 @@ endfun
 
 map <leader>pp :call DB()<CR>
 map <leader>pv :call ShowPreview()<CR>
+map <leader>pf :call ShowFull()<CR>
 map <leader>pc :call CountNrRows()<CR>
 map <leader>pj :call ShowJobs()<CR>
 map <leader>ps :call SwitchDB()<CR>
 map <leader>p+ :call TableDetails()<CR>
-map <leader>pf :call DBFuzzy()<CR>
+map <leader>pd :call DBFuzzy()<CR>
 
 
 
