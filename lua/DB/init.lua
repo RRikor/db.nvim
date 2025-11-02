@@ -18,36 +18,64 @@ local action_state = require("telescope.actions.state")
 
 local DBS = {}
 DBS[1] = {
-	name = "woco-dev",
-	conn = 'psql --host="$RDSDBDEV" --port=5432 --username="$DB_OCTOCVDB_DEV_ROOT_USER" --password --dbname="$DB_OCTOCVDB_DEV_NAME" -w -f %s 2>&1',
+	name = "platform-frontend-dev",
+	conn = 'psql --host="$DB_PLATFORM_FRONTEND_DEV" --port=5432 --username="$DB_PLATFORM_FRONTEND_DEV_PERSONAL_USER" --password --dbname="$DB_PLATFORM_FRONTEND_DEV_DBNAME" -w -f %s 2>&1',
+  gdb = os.getenv("DB_UI_FRONTEND_DEV")
 }
 DBS[2] = {
-	name = "woco-prd",
-	conn = 'psql --host="$RDSDB" --port=5432 --username="$DB_OCTOCVDB_PRD_ROOT_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -f %s 2>&1',
+	name = "platform-frontend-dev-root",
+	conn = 'psql --host="$DB_PLATFORM_FRONTEND_DEV" --port=5432 --username="$DB_PLATFORM_FRONTEND_DEV_ROOT_USER" --password --dbname="$DB_PLATFORM_FRONTEND_DEV_DBNAME" -w -f %s 2>&1',
+  gdb = os.getenv("DB_UI_FRONTEND_DEV_ROOT")
 }
 DBS[3] = {
-	name = "spotr-domain-dev",
-	conn = "psql --host=$RDSDOMAINACC --port=5432 --username=$DB_DOMAIN_API_PRD_USER --password --dbname=$DB_DOMAIN_API_PRD_NAME -w -f %s 2>&1",
+	name = "platform-frontend-prd",
+	conn = 'psql --host="$DB_PLATFORM_FRONTEND_PRD" --port=5432 --username="$DB_PLATFORM_FRONTEND_PRD_PERSONAL_USER" --password --dbname="$DB_PLATFORM_FRONTEND_PRD_DBNAME" -w -f %s 2>&1',
+  gdb = os.getenv("DB_UI_FRONTEND_PRD")
 }
 DBS[4] = {
-	name = "spotr-domain-prd",
-	conn = "psql --host=$RDSDOMAINPRD --port=5432 --username=$DB_DOMAIN_API_DEV_USER --password --dbname=$DB_DOMAIN_API_DEV_NAME -w -f %s 2>&1",
+	name = "platform-frontend-prd-root",
+	conn = 'psql --host="$DB_PLATFORM_FRONTEND_PRD" --port=5432 --username="$DB_PLATFORM_FRONTEND_PRD_ROOT_USER" --password --dbname="$DB_PLATFORM_FRONTEND_PRD_DBNAME" -w -f %s 2>&1',
+  gdb = os.getenv("DB_UI_FRONTEND_PRD_ROOT")
 }
 DBS[5] = {
-	name = "FM - Redshift",
-	conn = "psql --host=$REDSHIFT --port=5439 --username=$DB_REDSHIFT_USER --password --dbname=$DB_REDSHIFT_NAME -w -f %s 2>&1",
+	name = "data-sources-dev-root",
+	conn = 'psql --host="$DB_DATA_SOURCES_DEV" --port=5432 --username="$DB_DATA_SOURCES_DEV_ROOT_USER" --password --dbname="$DB_DATA_SOURCES_DEV_DBNAME" -w -f %s 2>&1',
+  gdb = ''
 }
 DBS[6] = {
-	name = "surveyor-prd",
-	conn = 'psql --host="$SURVEYOR_PRD" --port=5432 --username="$DB_SURVEYOR_PRD_USER" --password --dbname="$DB_SURVEYOR_PRD_DB_NAME" -w -f %s 2>&1',
+	name = "data-sources-dev-machine-learning",
+	conn = 'psql --host="$DB_DATA_SOURCES_DEV" --port=5432 --username="$DB_DATA_SOURCES_DEV_MACHINE_USER" --password --dbname="$DB_DATA_SOURCES_DEV_DBNAME" -w -f %s 2>&1',
+  gdb = ''
 }
 DBS[7] = {
-	name = "condition-dev",
-	conn = 'psql --host="$CONDITION_DEV" --port=5432 --username="$DB_CONDITION_DEV_USER" --password --dbname="$DB_CONDITION_DEV_DB_NAME" -w -f %s 2>&1',
+	name = "woco-prd",
+	conn = 'psql --host="$DB_DOWNLOAD_LAYER_PRD" --port=5432 --username="$DB_OCTOCVDB_PRD_PERSONAL_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -f %s 2>&1',
+  gdb = os.getenv("DB_UI_DOWNLOAD_LAYER_PRD")
 }
+DBS[8] = {
+	name = "woco-prd-root",
+	conn = 'psql --host="$DB_DOWNLOAD_LAYER_PRD" --port=5432 --username="$DB_OCTOCVDB_PRD_ROOT_USER" --password --dbname="$DB_OCTOCVDB_PRD_NAME" -w -f %s 2>&1',
+  gdb = ""
+}
+DBS[9] = {
+	name = "batches_prd",
+	conn = 'psql --host=$DB_BATCHES_PRD --port=5432 --username=$DB_BATCHES_PRD_ROOT_USER --password --dbname=$DB_BATCHES_PRD_DBNAME -w -f %s 2>&1',
+  gdb = os.getenv("DB_UI_BATCHES_PRD")
+}
+-- DBS[8] = {
+-- 	name = "domain-dev",
+-- 	conn = 'psql --host="$DOMAIN_DEV" --port=5432 --username="DB_DOMAIN_API_DEV_USER" --password --dbname="DB_DOMAIN_API_DEV_NAME" -w -f %s 2>&1',
+--   gdb = os.getenv("DB_UI_DOMAIN_DEV")
+-- }
+-- DBS[9] = {
+-- 	name = "domain-prd",
+-- 	conn = 'psql --host=$DOMAIN_PRD --port=5432 --username=$DB_DOMAIN_API_PRD_USER --password --dbname=$DB_DOMAIN_API_PRD_NAME -w -f %s 2>&1',
+--   gdb = os.getenv("DB_UI_DOMAIN_PRD")
+-- }
 
 if not vim.g.dbconn then
 	vim.g.dbconn = DBS[1]
+  vim.g.db = vim.g.dbconn.gdb
 end
 
 function DB.get_selection()
@@ -94,7 +122,8 @@ function DB.getSchemaAndTable()
 	local wordUnderCursor = vim.fn.expand("<cWORD>")
 	local cleanup1 = vim.fn.substitute(wordUnderCursor, ";", "", "g")
 	local cleanup2 = vim.fn.substitute(cleanup1, ")", "", "g")
-	return cleanup2
+	local cleanup3 = vim.fn.substitute(cleanup2, "(", "", "g")
+	return cleanup3
 end
 
 function DB.ShowPreview()
@@ -283,12 +312,35 @@ function DB.ShowJobs()
 	DB.Execute(sql, {
         saveQuery = false,
 		keys = {
-			{ "s", ':lua require("DB").StopJob()' },
+			{ "t", ':lua require("DB").TerminateJob()' },
 		},
 	})
 end
 
-function DB.StopJob()
+function DB.ListCustomers()
+	DB.SetCurrentPosition()
+	local sql = [[
+    SELECT
+          customers.id AS customer_id,
+          customers.name AS customer_name,
+          customers.active AS active,
+          portfolios.id AS portfolio_id,
+          portfolios.name AS portfolio_name,
+          portfolios.active as portfolio_active
+      FROM platform_customer.customers
+      INNER JOIN platform_customer.portfolios ON customers.id = portfolios.customer_id
+      ORDER BY customers.id, portfolios.id;
+      ]]
+	DB.Execute(sql, {
+        saveQuery = false,
+		keys = {
+			{ "t", ':lua require("DB").TerminateJob()' },
+		},
+	})
+
+end
+
+function DB.TerminateJob()
 	local wordUnderCursor = vim.fn.expand("<cword>")
 	local sql = "select pg_terminate_backend('" .. wordUnderCursor .. "');"
 	print(sql)
@@ -426,8 +478,8 @@ function DB.db_selection()
 	local editorWidth = vim.api.nvim_get_option("columns")
 	local editorHeight = vim.api.nvim_get_option("lines")
 
-	local height = math.ceil(editorHeight * 0.2 - 5)
-	local width = math.ceil(editorWidth * 0.2 - 10)
+	local height = math.ceil(editorHeight * 0.2)
+	local width = math.ceil(editorWidth * 0.2)
 	local opts = {
 		style = "minimal",
 		border = "shadow",
@@ -467,6 +519,7 @@ function DB.set_db(win)
 	local id = string.sub(line, 1, 1)
 	vim.g.dbconn = DBS[tonumber(id)]
 	print("Switching connection to", vim.g.dbconn.name)
+  vim.g.db = vim.g.dbconn.gdb
 	vim.api.nvim_win_close(win, true)
 end
 
@@ -502,7 +555,9 @@ function DB.render_fuzzy(data)
 					actions.close(prompt_bufnr)
 					local selection = action_state.get_selected_entry()
                     local limit = ''
-                    if selection[1] == 'nl_data.corporations' then
+                    if selection[1] == 'platform_customer.customers' then
+                        limit = ''
+                    elseif selection[1] == 'platform_customer.portfolios' then
                         limit = ''
                     else
                         limit = ' limit 50'

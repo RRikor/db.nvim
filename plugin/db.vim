@@ -23,6 +23,11 @@ fun! ShowJobs() range abort
     lua require("DB").ShowJobs()
 endfun
 
+fun! ShowCustomers() range abort
+    call Reload()
+    lua require("DB").ListCustomers()
+endfun
+
 fun! SwitchDB() range abort
     call Reload()
     lua require("DB").db_selection()
@@ -50,6 +55,7 @@ map <leader>pj :call ShowJobs()<CR>
 map <leader>ps :call SwitchDB()<CR>
 map <leader>p+ :call TableDetails()<CR>
 map <leader>pd :call DBFuzzy()<CR>
+map <leader>sc :call ShowCustomers()<CR>
 
 
 
